@@ -1,4 +1,4 @@
-"""Saved profiles (~/.claudeverse/profiles/<name>/{meta,secret}.json) and how they relate to the
+"""Saved profiles (~/.encore/profiles/<name>/{meta,secret}.json) and how they relate to the
 live login: which profile it is, keeping its refreshed tokens, saving it as a new profile.
 """
 from __future__ import annotations
@@ -36,14 +36,14 @@ def profile_names() -> list:
 
 
 def old_api_key_profiles() -> list:
-    """API key profiles saved by an older version. claudeverse does not use them any more."""
+    """API key profiles saved by an older version. encore does not use them any more."""
     return [n for n in _all_profile_names() if load_meta(n).get("kind") == "apikey"]
 
 
 def load_meta(name: str) -> dict:
     meta = files.read_json(profile_dir(name) / "meta.json")
     if meta is None:
-        raise Error(f"there is no profile named '{name}' (see: claudeverse list)")
+        raise Error(f"there is no profile named '{name}' (see: encore list)")
     return meta
 
 
@@ -171,7 +171,7 @@ def save_live_login(name: str) -> str:
 
 
 def save_new_login(name: str, oauth: dict, oauth_account: dict) -> None:
-    """Save a login made outside Claude Code's config folder (`claudeverse add`) as profile `name`."""
+    """Save a login made outside Claude Code's config folder (`encore add`) as profile `name`."""
     other = find_profile_for(oauth_account)
     if other:
         raise Error(f"this account is already saved as '{other}'")

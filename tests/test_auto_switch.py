@@ -7,13 +7,13 @@ from contextlib import redirect_stdout
 from unittest import mock
 
 from support import Base
-from claudeverse import Error, auto_switch, commands, files, hooks, profiles, state, statusline, \
+from encore import Error, auto_switch, commands, files, hooks, profiles, state, statusline, \
     switch_signal, usage, watcher
 
 
 class AutoTests(Base):
     """The automatic switch to another account at the usage limit (usage requests are offline here:
-    the numbers come from what claudeverse saw last)."""
+    the numbers come from what encore saw last)."""
 
     def setUp(self):
         super().setUp()

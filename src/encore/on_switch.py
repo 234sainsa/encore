@@ -21,7 +21,7 @@ def config() -> dict:
 
 
 def change(action: str, text: list) -> dict:
-    """Apply `claudeverse on-switch <action> <text...>`. Returns the config in effect afterwards."""
+    """Apply `encore on-switch <action> <text...>`. Returns the config in effect afterwards."""
     if action == "show":
         return config()
     with state.edit() as st:
@@ -29,7 +29,7 @@ def change(action: str, text: list) -> dict:
         own = dict(st.get("on_switch") or {})
         if action == "set":
             if not text:
-                raise Error('give the commands, e.g.  claudeverse on-switch set "/remote-control" "/color blue"')
+                raise Error('give the commands, e.g.  encore on-switch set "/remote-control" "/color blue"')
             own["commands"] = list(text)
         elif action == "add":
             if not text:
@@ -39,7 +39,7 @@ def change(action: str, text: list) -> dict:
             own["commands"] = []
         elif action == "continue":
             if not text:
-                raise Error('give the text, or "off":  claudeverse on-switch continue "go on"')
+                raise Error('give the text, or "off":  encore on-switch continue "go on"')
             joined = " ".join(text)
             own["continue_text"] = "" if joined.lower() == "off" else joined
         elif action == "reset":

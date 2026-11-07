@@ -78,10 +78,10 @@ def keychain_services() -> set:
 def live_store():
     if not IS_MAC:
         return FileStore()
-    service = os.environ.get("CLAUDEVERSE_KEYCHAIN_SERVICE")
+    service = os.environ.get("ENCORE_KEYCHAIN_SERVICE")
     if not service:
         if os.environ.get("CLAUDE_CONFIG_DIR"):
-            raise Error("on macOS with CLAUDE_CONFIG_DIR set, also set CLAUDEVERSE_KEYCHAIN_SERVICE "
+            raise Error("on macOS with CLAUDE_CONFIG_DIR set, also set ENCORE_KEYCHAIN_SERVICE "
                         "to the keychain item name Claude Code uses (see README)")
         service = KEYCHAIN_SERVICE
     ks = KeychainStore(service)

@@ -29,7 +29,7 @@ def notice_after_typing(sig: dict) -> str:
     """Windows, for a session that was not stopped at the limit: /remote-control was typed in, but
     the model still has to hear about its agents."""
     return (
-        f"claudeverse (a hook the user installed): the login switched from '{sig.get('from')}' to "
+        f"encore (a hook the user installed): the login switched from '{sig.get('from')}' to "
         f"'{sig.get('to')}' at {usage.fmt_time(sig.get('at'))}; /remote-control was typed in. Subagents and background "
         "agents that were running during the switch may have stopped. The user set up this hook so that each of "
         "them is checked, one by one, and every one that stopped is started again.")
@@ -38,7 +38,7 @@ def notice_after_typing(sig: dict) -> str:
 def notice(sig: dict) -> str:
     # Written as a notice, not as orders: models rightly ignore orders that show up in tool output.
     return (
-        f"claudeverse (a hook the user installed): the login switched from '{sig.get('from')}' to "
+        f"encore (a hook the user installed): the login switched from '{sig.get('from')}' to "
         f"'{sig.get('to')}' at {usage.fmt_time(sig.get('at'))}. Remote Control has likely disconnected; only the user "
         "can reconnect it (/remote-control). Subagents and background agents that were running during the "
         "switch may have stopped. The user set up this hook to hear about Remote Control, and so that each "
@@ -62,7 +62,7 @@ def type_after_switch(data: dict, sig: dict) -> bool:
 
 
 def type_into_all() -> None:
-    """Windows, `claudeverse after-switch`, started in the background by every switch: start one
+    """Windows, `encore after-switch`, started in the background by every switch: start one
     `after-switch --pid` for each session that was running before the switch.
 
     Sessions that started after the switch already use the new login, and /remote-control would
@@ -80,7 +80,7 @@ def type_into_all() -> None:
 
 
 def type_into_one(pid: int) -> None:
-    """Windows, `claudeverse after-switch --pid <pid>`: type into that one session."""
+    """Windows, `encore after-switch --pid <pid>`: type into that one session."""
     sig = _current_switch()
     if sig is None:
         return

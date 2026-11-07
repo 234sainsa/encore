@@ -9,8 +9,8 @@ def switch_to(name: str, why: str = "manual") -> None:
     """Make `name` the login Claude Code uses. Call with the Lock held."""
     meta = profiles.load_meta(name)
     if meta.get("kind") == "apikey":
-        raise Error(f"'{name}' is an API key saved by an older claudeverse; API keys are not used any more "
-                    f"(delete it: claudeverse remove {name})")
+        raise Error(f"'{name}' is an API key saved by an older version; API keys are not used any more "
+                    f"(delete it: encore remove {name})")
     before = profiles.current_profile()
     profiles.sync_back()
     secret = profiles.load_secret(name)

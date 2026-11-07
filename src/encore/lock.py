@@ -1,4 +1,4 @@
-"""The lock file (~/.claudeverse/.lock), so that two claudeverse processes never switch at once.
+"""The lock file (~/.encore/.lock), so that two encore processes never switch at once.
 """
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from . import Error, paths
 
 
 class Lock:
-    """A lock file so that two claudeverse processes never switch at once."""
+    """A lock file so that two encore processes never switch at once."""
 
     def __init__(self, timeout: float = 10.0):
         self.path = paths.home() / ".lock"
@@ -32,7 +32,7 @@ class Lock:
                 except FileNotFoundError:
                     continue
                 if time.time() > deadline:
-                    raise Error(f"another claudeverse is busy (lock file: {self.path})")
+                    raise Error(f"another encore is busy (lock file: {self.path})")
                 time.sleep(0.05)
 
     def __exit__(self, *exc):

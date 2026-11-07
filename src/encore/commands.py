@@ -1,4 +1,4 @@
-"""The claudeverse commands for people (save, add, use, list, install, ...): each one calls the
+"""The encore commands for people (save, add, use, list, install, ...): each one calls the
 core and prints the outcome.
 """
 from __future__ import annotations
@@ -65,10 +65,10 @@ def relogin(name: str, meta: dict) -> None:
     email = meta.get("email")
     print(f"\nThe saved login of '{name}' has expired.")
     if not sys.stdin.isatty():
-        print(f"Run /login in Claude Code and sign in as {email}. claudeverse keeps that login by itself.")
+        print(f"Run /login in Claude Code and sign in as {email}. encore keeps that login by itself.")
         return
     if input(f"Sign in as {email} in the browser now? [Y/n] ").strip().lower() not in ("", "y", "yes"):
-        print(f"Later, run /login in Claude Code and sign in as {email}. claudeverse keeps that login by itself.")
+        print(f"Later, run /login in Claude Code and sign in as {email}. encore keeps that login by itself.")
         return
     claude_login.sign_in(email)
     with Lock():
@@ -81,7 +81,7 @@ def relogin(name: str, meta: dict) -> None:
 
 def cmd_use_soonest() -> None:
     """Switch to the account that can be used first (one that is not at its limit, or else the one
-    whose limit resets first). claudeverse also does this by itself at the limit (auto_switch)."""
+    whose limit resets first). encore also does this by itself at the limit (auto_switch)."""
     profiles.sync_back()
     now = time.time()
     rows = usage.soonest_first(now)
@@ -134,7 +134,7 @@ def cmd_list() -> None:
     profiles.sync_back()
     rows, cur = profile_rows()
     if not rows:
-        print("No profiles yet. Run: claudeverse setup")
+        print("No profiles yet. Run: encore setup")
         return
     for mark, name, who, login, used in rows:
         print(f"{mark} {name:<14} {who}")
@@ -145,8 +145,8 @@ def cmd_list() -> None:
         print("\n(The current Claude Code login is not saved as a profile.)")
     old = profiles.old_api_key_profiles()
     if old:
-        print(f"\nAPI keys saved by an older claudeverse (not used any more): {', '.join(old)}. "
-              f"Delete with: claudeverse remove <name>")
+        print(f"\nAPI keys saved by an older version (not used any more): {', '.join(old)}. "
+              f"Delete with: encore remove <name>")
 
 
 def cmd_status(as_json: bool = False) -> None:
@@ -180,7 +180,7 @@ def cmd_usage(name: str | None) -> None:
 
 def auto_description(a: dict) -> str:
     if not a.get("enabled", True):
-        return "Automatic switch: off (turn on: claudeverse auto on)"
+        return "Automatic switch: off (turn on: encore auto on)"
     threshold = float(a.get("threshold") or 100)
     when = ("when Claude Code stops at the usage limit" if threshold >= 100
             else f"when the account in use reaches {threshold:.0f}% of a limit")
@@ -191,7 +191,7 @@ def cmd_auto(on: bool, threshold: float | None) -> None:
     a = auto_switch.configure(on, threshold)
     print(auto_description(a))
     if on and not claude_settings.statusline_installed():
-        print("It needs the status line and hooks. Run: claudeverse install")
+        print("It needs the status line and hooks. Run: encore install")
 
 
 def cmd_on_switch(action: str, text: list) -> None:
@@ -211,14 +211,21 @@ def cmd_on_switch(action: str, text: list) -> None:
 
 
 def cmd_install() -> None:
+    try:
+        moved = paths.move_old_home()
+    except OSError as e:
+        raise Error(f"could not move the profiles to {paths.home().parent / '.encore'} ({e}). "
+                    "Close Claude Code and run: encore install") from e
+    if moved:
+        print(f"Moved the profiles from {moved} to {paths.home()}.")
     kept_old_line = claude_settings.install()
     print(f"Installed the status line and the hooks (StopFailure, SessionStart, FileChanged) "
           f"in {paths.settings_path()}.")
-    print("At the usage limit, claudeverse now moves to the account that can be used first.")
+    print("At the usage limit, encore now moves to the account that can be used first.")
     print("Sessions started from now on get the on-switch commands typed in after a switch "
-          "(see: claudeverse on-switch).")
+          "(see: encore on-switch).")
     if kept_old_line:
-        print("Your previous status line still shows, after the claudeverse part.")
+        print("Your previous status line still shows, after the encore part.")
 
 
 def cmd_uninstall() -> None:

@@ -23,7 +23,7 @@ def sign_in_elsewhere(claude: str, email: str | None = None):
     """Sign in in a throwaway config folder, so that the live login stays as it is.
 
     Returns (claudeAiOauth, oauthAccount) of the new login."""
-    tmp = Path(tempfile.mkdtemp(prefix="claudeverse-login-"))
+    tmp = Path(tempfile.mkdtemp(prefix="encore-login-"))
     env = dict(os.environ, CLAUDE_CONFIG_DIR=str(tmp))
     before = credentials.keychain_services() if IS_MAC else set()
     try:

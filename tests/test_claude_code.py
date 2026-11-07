@@ -1,13 +1,15 @@
-"""What claudeverse puts into Claude Code: the status line, and settings.json (install, uninstall)."""
+"""What encore puts into Claude Code: the status line, and settings.json (install, uninstall)."""
 import io
 import json
+import os
 import time
 import unittest
 from contextlib import redirect_stdout
+from pathlib import Path
 from unittest import mock
 
 from support import Base
-from claudeverse import claude_settings, commands, files, paths, profiles, state, statusline
+from encore import claude_settings, commands, files, paths, profiles, state, statusline
 
 
 class ReloginTests(Base):
@@ -53,7 +55,7 @@ class InstallTests(Base):
         self.quiet(commands.cmd_install)
         self.quiet(commands.cmd_install)  # twice: no duplicates
         s = claude_settings.load()
-        self.assertEqual(s["statusLine"]["command"], "claudeverse statusline")
+        self.assertEqual(s["statusLine"]["command"], "encore statusline")
         self.assertEqual(len(s["hooks"]["StopFailure"]), 1)
         self.assertEqual(len(s["hooks"]["SessionStart"]), 1)
         fc = s["hooks"]["FileChanged"][0]
@@ -65,6 +67,46 @@ class InstallTests(Base):
         self.assertEqual(s["statusLine"]["command"], "my-line")
         self.assertEqual(s["hooks"], {"Stop": [{"hooks": [{"type": "command", "command": "x"}]}]})
         self.assertEqual(s["theme"], "dark")
+
+    def test_only_command_lines_that_run_encore_are_ours(self):
+        self.assertTrue(claude_settings.is_ours('"C:/py.exe" "C:/src/encore/encore.py" statusline'))
+        self.assertTrue(claude_settings.is_ours('"/usr/bin/python3" -m encore hook-stop-failure'))
+        self.assertTrue(claude_settings.is_ours(f'"py" "C:/src/{paths.OLD_NAME}/{paths.OLD_NAME}.py" statusline'))
+        self.assertFalse(claude_settings.is_ours("python encore-backup.py"))
+        self.assertFalse(claude_settings.is_ours("notify --title encore done"))
+
+    def test_install_replaces_the_entries_of_the_old_name_and_keeps_the_rest(self):
+        old = f'"py" "C:/src/{paths.OLD_NAME}/{paths.OLD_NAME}.py"'
+        other = {"hooks": [{"type": "command", "command": "python encore-backup.py"}]}
+        files.write_json(paths.settings_path(), {
+            "statusLine": {"type": "command", "command": f"{old} statusline", "padding": 0},
+            "hooks": {"StopFailure": [{"matcher": "rate_limit",
+                                       "hooks": [{"type": "command", "command": f"{old} hook-stop-failure"}]},
+                                      other]}})
+        self.quiet(commands.cmd_install)
+        s = claude_settings.load()
+        self.assertEqual(s["statusLine"]["command"], "encore statusline")
+        self.assertNotIn("statusline_then", state.load())
+        self.assertEqual(s["hooks"]["StopFailure"][0], other)
+        self.assertEqual(s["hooks"]["StopFailure"][1]["hooks"][0]["command"], "encore hook-stop-failure")
+        self.assertEqual(len(s["hooks"]["StopFailure"]), 2)
+        self.assertNotIn(paths.OLD_NAME, json.dumps(s))
+
+
+class OldFolderTests(Base):
+    def test_old_folder_is_used_until_install_moves_it(self):
+        root = Path(self.tmp.name) / "user"
+        old = root / f".{paths.OLD_NAME}"
+        old.mkdir(parents=True)
+        (old / "state.json").write_text('{"auto": {"enabled": false}}', encoding="utf-8")
+        env = dict(os.environ)
+        env.pop("ENCORE_HOME")
+        with mock.patch.dict(os.environ, env, clear=True), mock.patch("pathlib.Path.home", return_value=root):
+            self.assertEqual(paths.home(), old)
+            self.quiet(commands.cmd_install)
+            self.assertEqual(paths.home(), root / ".encore")
+            self.assertFalse(old.exists())
+            self.assertFalse(state.load()["auto"]["enabled"])
 
 
 if __name__ == "__main__":

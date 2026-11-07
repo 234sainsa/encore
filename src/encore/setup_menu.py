@@ -1,4 +1,4 @@
-"""`claudeverse setup`: the interactive menu.
+"""`encore setup`: the interactive menu.
 """
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ def pick_profile() -> str | None:
 
 
 def run() -> None:
-    print(f"claudeverse {VERSION} setup. Profiles are kept in {paths.home()}\n")
+    print(f"encore {VERSION} setup. Profiles are kept in {paths.home()}\n")
     while True:
         try:
             commands.cmd_list()

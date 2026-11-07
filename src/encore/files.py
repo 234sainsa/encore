@@ -51,7 +51,7 @@ def write_json(path: Path, data, private: bool = False) -> None:
 
 
 def backup(label: str, data) -> None:
-    """Keep a copy of a file claudeverse is about to replace (the newest KEEP_BACKUPS stay)."""
+    """Keep a copy of a file encore is about to replace (the newest KEEP_BACKUPS stay)."""
     if data is None:
         return
     d = paths.home() / "backups"

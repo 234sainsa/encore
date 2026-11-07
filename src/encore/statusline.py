@@ -43,7 +43,7 @@ def _own_text(raw: str) -> str:
             with Lock(timeout=1.0):
                 cur = profiles.sync_back()
         except Error:
-            cur = None  # another claudeverse is busy; try next time
+            cur = None  # another encore is busy; try next time
         if windows and cur:
             usage.record_usage(cur, windows)
             watcher.watch_if_near_limit(windows)
@@ -51,7 +51,7 @@ def _own_text(raw: str) -> str:
         exp = profiles.login_expires_at(profiles.load_meta(cur)) if cur else None
         return status_text(cur, windows, exp)
     except Exception as e:  # never break the status line
-        return f"[claudeverse: {type(e).__name__}]"
+        return f"[encore: {type(e).__name__}]"
 
 
 def status_text(profile, windows, login_expires) -> str:

@@ -4,7 +4,7 @@ import unittest
 from unittest import mock
 
 from support import Base, oauth
-from claudeverse import Error, claude_settings, commands, files, paths, profiles, state, usage
+from encore import Error, claude_settings, commands, files, paths, profiles, state, usage
 
 
 class SwitchTests(Base):
@@ -74,7 +74,7 @@ class SwitchTests(Base):
     def test_leftovers_of_the_old_api_key_feature_are_cleaned_up(self):
         self.setup_two()
         profiles.save_profile("api", {"name": "api", "kind": "apikey"}, {"apiKey": "sk-ant-x"})
-        files.write_json(paths.settings_path(), {"apiKeyHelper": "claudeverse api-key", "theme": "dark"})
+        files.write_json(paths.settings_path(), {"apiKeyHelper": "encore api-key", "theme": "dark"})
         files.write_json(paths.home() / "state.json", {"api_active": "api", "usage": {},
                                                        "auto": {"enabled": False, "fallback": "api"}})
         self.assertEqual(profiles.profile_names(), ["a", "b"])

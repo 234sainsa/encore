@@ -9,9 +9,9 @@ from . import IS_WIN, Error, VERSION, after_switch, commands, hooks, setup_menu,
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="claudeverse",
+    p = argparse.ArgumentParser(prog="encore",
                                 description="Switch Claude Code between your accounts automatically.")
-    p.add_argument("--version", action="version", version=f"claudeverse {VERSION}")
+    p.add_argument("--version", action="version", version=f"encore {VERSION}")
     sub = p.add_subparsers(dest="cmd")
     sub.add_parser("setup", help="interactive setup")
     x = sub.add_parser("save", help="save the current login as a profile")
@@ -49,7 +49,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("auto-check", help=argparse.SUPPRESS)
     sub.add_parser("hook-session-start", help=argparse.SUPPRESS)
     sub.add_parser("hook-switched", help=argparse.SUPPRESS)
-    # Run by claudeverse itself, in the background after a switch (Windows).
+    # Run by encore itself, in the background after a switch (Windows).
     x = sub.add_parser("after-switch", help=argparse.SUPPRESS)
     x.add_argument("--pid", type=int)
     return p
@@ -118,7 +118,7 @@ def main(argv=None) -> int:
     try:
         return run(a)
     except Error as e:
-        print(f"claudeverse: {e}", file=sys.stderr)
+        print(f"encore: {e}", file=sys.stderr)
         return 1
     except KeyboardInterrupt:
         print()

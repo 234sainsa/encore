@@ -1,4 +1,4 @@
-"""The hooks claudeverse installs in Claude Code: read the event from stdin, act, and answer on
+"""The hooks encore installs in Claude Code: read the event from stdin, act, and answer on
 stdout, stderr and the exit code.
 """
 from __future__ import annotations

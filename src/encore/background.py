@@ -1,4 +1,4 @@
-"""Run a claudeverse command in the background, detached from whatever started it.
+"""Run a encore command in the background, detached from whatever started it.
 """
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from . import IS_WIN, paths
 
 
 def start(args: str) -> None:
-    """Run `claudeverse <args>` in the background, with no window, and do not wait for it."""
+    """Run `encore <args>` in the background, with no window, and do not wait for it."""
     cmd = f"{paths.self_command()} {args}"
     kw = dict(shell=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     if not IS_WIN:

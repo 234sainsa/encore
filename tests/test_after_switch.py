@@ -12,7 +12,7 @@ from pathlib import Path
 from unittest import mock
 
 from support import Base
-from claudeverse import after_switch, commands, files, hooks, on_switch, screen, switch_signal, transcript
+from encore import after_switch, commands, files, hooks, on_switch, screen, switch_signal, transcript
 
 
 class SignalTests(Base):
@@ -94,11 +94,11 @@ class SignalTests(Base):
 
     def test_switch_starts_after_switch_on_windows(self):
         # Claude Code does not always run the FileChanged hook: every switch types by itself too.
-        with mock.patch("claudeverse.switching.IS_WIN", True):
+        with mock.patch("encore.switching.IS_WIN", True):
             self.quiet(commands.cmd_use, "a")
             self.quiet(commands.cmd_use, "a")  # no change: nothing to type
         self.assertEqual(self.started, ["after-switch"])
-        with mock.patch("claudeverse.switching.IS_WIN", False):
+        with mock.patch("encore.switching.IS_WIN", False):
             self.quiet(commands.cmd_use, "b")
         self.assertEqual(self.started, ["after-switch"])
 
@@ -107,7 +107,7 @@ class SignalTests(Base):
 class AfterSwitchTypingTests(Base):
     def setUp(self):
         super().setUp()
-        from claudeverse import session_typing, win_console
+        from encore import session_typing, win_console
         self.session_typing, self.win_console = session_typing, win_console
         self.typed = []
         for name, fake in {
@@ -213,8 +213,8 @@ class WindowsCodeIsolationTests(unittest.TestCase):
     def test_the_command_line_loads_without_the_windows_console_code(self):
         # The ctypes code is loaded only when something is typed into a session (Windows).
         src = str(Path(__file__).resolve().parent.parent / "src")
-        code = ("import sys; sys.path.insert(0, sys.argv[1]); import claudeverse.cli; "
-                "print(sorted(m for m in sys.modules if m.startswith('claudeverse.') "
+        code = ("import sys; sys.path.insert(0, sys.argv[1]); import encore.cli; "
+                "print(sorted(m for m in sys.modules if m.startswith('encore.') "
                 "and m.split('.')[1] in ('win_console', 'session_typing')))")
         r = subprocess.run([sys.executable, "-I", "-c", code, src], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)

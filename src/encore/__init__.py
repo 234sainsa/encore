@@ -1,4 +1,4 @@
-"""claudeverse: keep several Claude Code logins and switch to another one at the usage limit.
+"""encore: keep several Claude Code logins and switch to another one at the usage limit.
 
 Layers. A module imports only from its own layer or the layers above it, never from below:
 
@@ -8,7 +8,7 @@ Layers. A module imports only from its own layer or the layers above it, never f
   after switch  screen, transcript (pure parsing), win_console, session_typing (Windows only),
                 after_switch (what a session gets after a switch)
   edges         cli, commands, setup_menu (for people); statusline, hooks (run by Claude Code);
-                auto-check, after-switch (run by claudeverse itself, in the background)
+                auto-check, after-switch (run by encore itself, in the background)
 
 Only the edges read stdin, print, and choose exit codes. Everything else returns values or raises
 Error; the messages for people are made at the edges. win_console and session_typing load ctypes
@@ -17,7 +17,7 @@ and are imported on Windows code paths only.
 import os
 import sys
 
-VERSION = "1.0.1"
+VERSION = "1.1.0"
 IS_MAC = sys.platform == "darwin"
 IS_WIN = os.name == "nt"
 

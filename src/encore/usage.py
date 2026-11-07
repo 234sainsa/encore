@@ -1,4 +1,4 @@
-"""Usage numbers: asking Anthropic, reading the status line's numbers, and what claudeverse saw last.
+"""Usage numbers: asking Anthropic, reading the status line's numbers, and what encore saw last.
 """
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from . import Error, VERSION, profiles, state
 
 USAGE_URL = "https://api.anthropic.com/api/oauth/usage"
 OAUTH_BETA = "oauth-2025-04-20"
-USER_AGENT = f"claudeverse/{VERSION}"
+USER_AGENT = f"encore/{VERSION}"
 
 
 def iso_to_epoch(text):
@@ -91,7 +91,7 @@ def ask_anthropic(name: str) -> list:
     oauth = profiles.load_secret(name).get("claudeAiOauth") or {}
     if (oauth.get("expiresAt") or 0) / 1000 < time.time():
         raise Error(f"the saved access token of '{name}' has expired. Claude Code renews it the next "
-                    f"time '{name}' is used; claudeverse does not renew tokens itself")
+                    f"time '{name}' is used; encore does not renew tokens itself")
     windows = windows_from_api(fetch_usage(oauth["accessToken"]))
     record_usage(name, windows)
     return windows
@@ -106,7 +106,7 @@ def usable_from(name: str, now: float, threshold: float = 100.0, timeout: float 
 
     An account counts as used up while a limit is at `threshold` percent or more. The numbers come
     from Anthropic when the saved access token still works, otherwise from the last numbers
-    claudeverse saw for that account (status line, `usage`)."""
+    encore saw for that account (status line, `usage`)."""
     windows, source = None, "no numbers yet"
     oauth = profiles.load_secret(name).get("claudeAiOauth") or {}
     if (oauth.get("expiresAt") or 0) / 1000 > now + 60:

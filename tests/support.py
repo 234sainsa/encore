@@ -1,4 +1,4 @@
-"""Shared by the tests: throwaway folders for Claude Code and claudeverse, and fake logins.
+"""Shared by the tests: throwaway folders for Claude Code and encore, and fake logins.
 
 The tests never touch the real Claude Code login, never start the background watcher, and never
 reach the network.
@@ -16,7 +16,7 @@ from pathlib import Path
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-from claudeverse import background, credentials, files, watcher  # noqa: E402
+from encore import background, credentials, files, watcher  # noqa: E402
 
 
 def oauth(tag, exp_hours=8):
@@ -44,8 +44,8 @@ class Base(unittest.TestCase):
         self.cfg.mkdir()
         self.env = mock.patch.dict(os.environ, {
             "CLAUDE_CONFIG_DIR": str(self.cfg),
-            "CLAUDEVERSE_HOME": str(root / "claudeverse"),
-            "CLAUDEVERSE_COMMAND": "claudeverse",
+            "ENCORE_HOME": str(root / "encore"),
+            "ENCORE_COMMAND": "encore",
         })
         self.env.start()
         # Tests use the file store even on macOS.

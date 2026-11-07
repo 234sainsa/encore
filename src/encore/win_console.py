@@ -8,7 +8,7 @@ import os
 import time
 
 if os.name != "nt":
-    raise ImportError("claudeverse.win_console works on Windows only")
+    raise ImportError("encore.win_console works on Windows only")
 
 import ctypes  # noqa: E402
 from ctypes import wintypes  # noqa: E402

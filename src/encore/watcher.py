@@ -1,8 +1,8 @@
-"""The background watcher (`claudeverse auto-check`): near the limit, it asks Anthropic for the
+"""The background watcher (`encore auto-check`): near the limit, it asks Anthropic for the
 real numbers every minute and switches when the account in use is used up.
 
 Claude Code does not end the turn at the usage limit (it waits: "Retrying in 5h"), so no hook
-tells claudeverse about it, and the status line does not run again while it waits.
+tells encore about it, and the status line does not run again while it waits.
 """
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ WATCH_FOR = 30 * 60    # seconds the watcher keeps going after the status line l
 
 
 def start() -> None:
-    """Run the watcher (`claudeverse auto-check`) in the background."""
+    """Run the watcher (`encore auto-check`) in the background."""
     background.start("auto-check")
 
 

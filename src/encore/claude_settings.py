@@ -1,11 +1,17 @@
-"""Claude Code's settings.json: claudeverse's status line and hooks (install, uninstall), and the
+"""Claude Code's settings.json: encore's status line and hooks (install, uninstall), and the
 cleanup of what older versions left there.
 
-An entry is ours when its command line contains "claudeverse"; everything else is left alone.
+An entry is ours when its command line runs encore (encore.py, `-m encore`, or this install's own
+command line) or the version of the old name; everything else is left alone. "encore" is an
+ordinary word, so a command line that merely contains it is not enough.
 """
 from __future__ import annotations
 
+import re
+
 from . import files, on_switch, paths, state, switch_signal
+
+_RUNS_ENCORE = re.compile(r'(?:encore\.py"?|-m encore) [a-z-]+$')
 
 OUR_HOOK_EVENTS = ("StopFailure", "SessionStart", "FileChanged")
 
@@ -20,7 +26,10 @@ def save(s: dict) -> None:
 
 
 def is_ours(command) -> bool:
-    return isinstance(command, str) and "claudeverse" in command
+    if not isinstance(command, str):
+        return False
+    return (command.startswith(paths.self_command() + " ") or paths.OLD_NAME in command
+            or _RUNS_ENCORE.search(command) is not None)
 
 
 def statusline_installed() -> bool:
@@ -50,22 +59,23 @@ def _our_hooks(cmd: str) -> dict:
     }
 
 
+def _has_ours(group: dict) -> bool:
+    return any(is_ours(h.get("command")) for h in group.get("hooks", []))
+
+
 def install() -> bool:
-    """Add our status line and hooks (once). Returns True when the status line that was there
-    before keeps showing after ours."""
+    """Add our status line and hooks, or bring ours up to date (a moved checkout, the old name).
+    Returns True when the status line that was there before keeps showing after ours."""
     s = load()
     cmd = paths.self_command()
     with state.edit() as st:
         line = s.get("statusLine") or {}
-        if not is_ours(line.get("command")):
-            if line.get("command"):
-                st["statusline_then"] = line["command"]  # keep showing the old status line after ours
-            s["statusLine"] = {"type": "command", "command": f"{cmd} statusline", "padding": line.get("padding", 0)}
+        if line.get("command") and not is_ours(line["command"]):
+            st["statusline_then"] = line["command"]  # keep showing the old status line after ours
+        s["statusLine"] = {"type": "command", "command": f"{cmd} statusline", "padding": line.get("padding", 0)}
         hooks = s.setdefault("hooks", {})
         for event, group in _our_hooks(cmd).items():
-            groups = hooks.setdefault(event, [])
-            if not any(is_ours(h.get("command")) for g in groups for h in g.get("hooks", [])):
-                groups.append(group)
+            hooks[event] = [g for g in hooks.get(event, []) if not _has_ours(g)] + [group]
         if is_ours(s.get("apiKeyHelper")):
             del s["apiKeyHelper"]  # left by an older version (API keys are not used any more)
         save(s)
@@ -84,7 +94,7 @@ def uninstall() -> None:
                 del s["statusLine"]
         for event in OUR_HOOK_EVENTS:
             groups = (s.get("hooks") or {}).get(event) or []
-            groups = [g for g in groups if not any(is_ours(h.get("command")) for h in g.get("hooks", []))]
+            groups = [g for g in groups if not _has_ours(g)]
             if groups:
                 s["hooks"][event] = groups
             elif "hooks" in s:
