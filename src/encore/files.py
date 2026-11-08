@@ -7,6 +7,7 @@ import os
 import stat
 import tempfile
 import time
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
@@ -62,8 +63,43 @@ def backup(label: str, data) -> None:
         old.unlink(missing_ok=True)
 
 
+@contextmanager
+def _log_lock(home: Path):
+    """Hold events.log.lock while one line is appended.
+
+    Several encore processes write events.log at the same moment (one per session after a
+    switch). On Windows an append is "seek to the end, then write", so without this lock
+    one process overwrites the line of another and lines are lost or cut.
+    This is not the switch Lock: log_event is also called while that one is held."""
+    fd = os.open(home / "events.log.lock", os.O_RDWR | os.O_CREAT)
+    locked = False
+    try:
+        try:
+            if IS_WIN:
+                import msvcrt
+                os.lseek(fd, 0, os.SEEK_SET)
+                msvcrt.locking(fd, msvcrt.LK_LOCK, 1)  # retries for about 10 seconds
+            else:
+                import fcntl
+                fcntl.flock(fd, fcntl.LOCK_EX)
+            locked = True
+        except OSError:
+            pass  # still write the line: a rare broken line is better than none
+        yield
+    finally:
+        try:
+            if locked and IS_WIN:
+                import msvcrt
+                os.lseek(fd, 0, os.SEEK_SET)
+                msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+        finally:
+            os.close(fd)  # also releases the flock
+
+
 def log_event(text: str) -> None:
-    paths.home().mkdir(parents=True, exist_ok=True)
+    home = paths.home()
+    home.mkdir(parents=True, exist_ok=True)
     line = f"{datetime.now().isoformat(timespec='seconds')} {text}\n"
-    with open(paths.home() / "events.log", "a", encoding="utf-8") as f:
-        f.write(line)
+    with _log_lock(home):
+        with open(home / "events.log", "a", encoding="utf-8") as f:
+            f.write(line)

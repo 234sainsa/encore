@@ -17,7 +17,7 @@ and are imported on Windows code paths only.
 import os
 import sys
 
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 IS_MAC = sys.platform == "darwin"
 IS_WIN = os.name == "nt"
 
