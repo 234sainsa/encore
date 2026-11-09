@@ -22,10 +22,38 @@ def settings_path() -> Path:
     return claude_dir() / "settings.json"
 
 
-def home() -> Path:
-    """encore's own folder (~/.encore)."""
+# The name before 1.1.0. Its folder (~/.<OLD_NAME>) and its entries in settings.json are taken
+# over by `encore install`; nothing else uses it.
+OLD_NAME = "claudeverse"
+
+
+def _new_home() -> Path:
     d = os.environ.get("ENCORE_HOME")
     return Path(d).expanduser() if d else Path.home() / ".encore"
+
+
+def _old_home() -> Path:
+    return Path.home() / f".{OLD_NAME}"
+
+
+def home() -> Path:
+    """encore's own folder (~/.encore).
+
+    Until `encore install` has moved the folder of the old name, that folder is used as it is, so
+    the status line and hooks still running from the old install never split the data in two."""
+    new = _new_home()
+    if not os.environ.get("ENCORE_HOME") and not new.exists() and _old_home().is_dir():
+        return _old_home()
+    return new
+
+
+def move_old_home() -> Path | None:
+    """Move the folder of the old name to ~/.encore (once). Returns the old folder when moved."""
+    new, old = _new_home(), _old_home()
+    if os.environ.get("ENCORE_HOME") or new.exists() or not old.is_dir():
+        return None
+    old.rename(new)
+    return old
 
 
 def self_command() -> str:

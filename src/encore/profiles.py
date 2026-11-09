@@ -23,12 +23,21 @@ def profile_dir(name: str) -> Path:
     return paths.home() / "profiles" / name
 
 
-def profile_names() -> list:
-    """The saved Claude accounts."""
+def _all_profile_names() -> list:
     d = paths.home() / "profiles"
     if not d.is_dir():
         return []
     return sorted(p.name for p in d.iterdir() if (p / "meta.json").exists())
+
+
+def profile_names() -> list:
+    """The saved Claude accounts."""
+    return [n for n in _all_profile_names() if load_meta(n).get("kind") != "apikey"]
+
+
+def old_api_key_profiles() -> list:
+    """API key profiles saved by an older version. encore does not use them any more."""
+    return [n for n in _all_profile_names() if load_meta(n).get("kind") == "apikey"]
 
 
 def load_meta(name: str) -> dict:

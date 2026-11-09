@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "encore-cli"
-version = "1.2.0"
+version = "1.2.1"
 description = "Claude Code switches to your next account by itself when it hits the usage limit. Open sessions move along without a restart and continue where they stopped."
 readme = "README.md"
 requires-python = ">=3.9"

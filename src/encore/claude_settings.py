@@ -1,8 +1,9 @@
-"""Claude Code's settings.json: encore's status line and hooks (install, uninstall).
+"""Claude Code's settings.json: encore's status line and hooks (install, uninstall), and the
+cleanup of what older versions left there.
 
 An entry is ours when its command line runs encore (encore.py, `-m encore`, or this install's own
-command line); everything else is left alone. "encore" is an ordinary word, so a command line
-that merely contains it is not enough.
+command line) or the version of the old name; everything else is left alone. "encore" is an
+ordinary word, so a command line that merely contains it is not enough.
 """
 from __future__ import annotations
 
@@ -27,11 +28,20 @@ def save(s: dict) -> None:
 def is_ours(command) -> bool:
     if not isinstance(command, str):
         return False
-    return command.startswith(paths.self_command() + " ") or _RUNS_ENCORE.search(command) is not None
+    return (command.startswith(paths.self_command() + " ") or paths.OLD_NAME in command
+            or _RUNS_ENCORE.search(command) is not None)
 
 
 def statusline_installed() -> bool:
     return is_ours((load().get("statusLine") or {}).get("command"))
+
+
+def drop_old_api_key_helper() -> None:
+    """Older versions could point Claude Code at an API key (apiKeyHelper). Take it out."""
+    s = load()
+    if is_ours(s.get("apiKeyHelper")):
+        del s["apiKeyHelper"]
+        save(s)
 
 
 def _our_hooks(cmd: str) -> dict:
@@ -54,7 +64,7 @@ def _has_ours(group: dict) -> bool:
 
 
 def install() -> bool:
-    """Add our status line and hooks, or bring ours up to date (e.g. a moved checkout).
+    """Add our status line and hooks, or bring ours up to date (a moved checkout, the old name).
     Returns True when the status line that was there before keeps showing after ours."""
     s = load()
     cmd = paths.self_command()
@@ -66,6 +76,8 @@ def install() -> bool:
         hooks = s.setdefault("hooks", {})
         for event, group in _our_hooks(cmd).items():
             hooks[event] = [g for g in hooks.get(event, []) if not _has_ours(g)] + [group]
+        if is_ours(s.get("apiKeyHelper")):
+            del s["apiKeyHelper"]  # left by an older version (API keys are not used any more)
         save(s)
     switch_signal.ensure_exists()
     return bool(st.get("statusline_then"))
@@ -89,4 +101,6 @@ def uninstall() -> None:
                 s["hooks"].pop(event, None)
         if "hooks" in s and not s["hooks"]:
             del s["hooks"]
+        if is_ours(s.get("apiKeyHelper")):
+            del s["apiKeyHelper"]  # left by an older version
         save(s)

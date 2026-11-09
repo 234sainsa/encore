@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 import sys
 
-from . import Error, after_switch, auto_switch, files, profiles, switch_signal
+from . import Error, after_switch, auto_switch, claude_settings, files, profiles, switch_signal
 from .lock import Lock
 
 
@@ -41,6 +41,7 @@ def session_start() -> int:
     try:
         with Lock(timeout=2.0):
             profiles.sync_back()  # e.g. after `claude auth login` outside a session
+        claude_settings.drop_old_api_key_helper()
     except Exception:
         pass
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart",
