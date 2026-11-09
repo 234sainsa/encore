@@ -68,10 +68,6 @@ Anything you were typing is kept. Change what is typed with `encore on-switch se
 - A saved login lasts about one month. When it expires, run `/login` in Claude Code with the same account; encore keeps the new login by itself. (`encore use` to an expired profile offers the sign-in right away.)
 - Data is stored in `~/.encore`.
 
-## Upgrading from 1.0
-
-Versions before 1.1 had another name. Install 1.1 and run `encore install` once: it moves your saved profiles to `~/.encore` and replaces the old status line and hooks. Then restart Claude Code.
-
 ## License
 
 MIT

@@ -143,10 +143,6 @@ def cmd_list() -> None:
             print(f"  {'':<14} {extra}")
     if cur is None:
         print("\n(The current Claude Code login is not saved as a profile.)")
-    old = profiles.old_api_key_profiles()
-    if old:
-        print(f"\nAPI keys saved by an older version (not used any more): {', '.join(old)}. "
-              f"Delete with: encore remove <name>")
 
 
 def cmd_status(as_json: bool = False) -> None:
@@ -211,13 +207,6 @@ def cmd_on_switch(action: str, text: list) -> None:
 
 
 def cmd_install() -> None:
-    try:
-        moved = paths.move_old_home()
-    except OSError as e:
-        raise Error(f"could not move the profiles to {paths.home().parent / '.encore'} ({e}). "
-                    "Close Claude Code and run: encore install") from e
-    if moved:
-        print(f"Moved the profiles from {moved} to {paths.home()}.")
     kept_old_line = claude_settings.install()
     print(f"Installed the status line and the hooks (StopFailure, SessionStart, FileChanged) "
           f"in {paths.settings_path()}.")

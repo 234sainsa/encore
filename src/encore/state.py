@@ -17,12 +17,8 @@ def path() -> Path:
 
 def load() -> dict:
     st = files.read_json(path(), {}) or {}
-    auto = st.get("auto")
-    if not isinstance(auto, dict) or "fallback" in auto:
-        # Older versions used "auto" for a move to an API key (removed). Now it is the automatic
-        # switch to another account, and it is on unless the person turns it off.
-        st["auto"] = {"enabled": True, "threshold": 100}
-    st.pop("api_active", None)
+    if not isinstance(st.get("auto"), dict):
+        st["auto"] = {"enabled": True, "threshold": 100}  # on unless the person turns it off
     st.setdefault("usage", {})
     return st
 

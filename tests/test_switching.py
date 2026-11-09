@@ -1,10 +1,10 @@
-"""Profiles and the switch: save, use, rename, use --soonest, and the cleanup of old data."""
+"""Profiles and the switch: save, use, rename, use --soonest."""
 import time
 import unittest
 from unittest import mock
 
 from support import Base, oauth
-from encore import Error, claude_settings, commands, files, paths, profiles, state, usage
+from encore import Error, commands, files, profiles, state, usage
 
 
 class SwitchTests(Base):
@@ -70,23 +70,6 @@ class SwitchTests(Base):
         with mock.patch.object(usage, "fetch_usage", side_effect=Error("offline")):
             self.quiet(commands.cmd_use_soonest)
         self.assertEqual(profiles.current_profile(), "a")
-
-    def test_leftovers_of_the_old_api_key_feature_are_cleaned_up(self):
-        self.setup_two()
-        profiles.save_profile("api", {"name": "api", "kind": "apikey"}, {"apiKey": "sk-ant-x"})
-        files.write_json(paths.settings_path(), {"apiKeyHelper": "encore api-key", "theme": "dark"})
-        files.write_json(paths.home() / "state.json", {"api_active": "api", "usage": {},
-                                                       "auto": {"enabled": False, "fallback": "api"}})
-        self.assertEqual(profiles.profile_names(), ["a", "b"])
-        self.assertEqual(state.load()["auto"], {"enabled": True, "threshold": 100})
-        with self.assertRaises(Error):
-            commands.cmd_use("api")
-        self.quiet(commands.cmd_use, "a")
-        self.assertEqual(claude_settings.load(), {"theme": "dark"})
-        # Someone else's apiKeyHelper stays.
-        files.write_json(paths.settings_path(), {"apiKeyHelper": "my-own-helper"})
-        self.quiet(commands.cmd_use, "b")
-        self.assertEqual(claude_settings.load()["apiKeyHelper"], "my-own-helper")
 
 
 class StateTests(Base):
