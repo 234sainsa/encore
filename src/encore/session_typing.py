@@ -82,12 +82,17 @@ def type_one(pid: int, text: str, deadline: float, session: str, cancel_wait: bo
     return True
 
 
-def remote_control_asked_retry(pid: int, deadline: float) -> bool:
+REMOTE_CONTROL_NOTICE_SEC = 90  # how long the dialog may wait for Remote Control to notice the switch
+
+
+def remote_control_asked_retry(pid: int, deadline: float, session: str = "") -> bool:
     """After /remote-control: True when its "try again" dialog came up (and was answered).
 
     A command typed while Claude works runs when the turn ends, so watch until the session has
-    been idle for a few seconds."""
+    been idle for a few seconds. While the dialog shows the connected state, keep watching: it
+    turns into the "try again" one when Remote Control notices the account change."""
     idle_since = None
+    dialog_until = None
     while time.time() < deadline:
         time.sleep(1.0)
         try:
@@ -97,6 +102,17 @@ def remote_control_asked_retry(pid: int, deadline: float) -> bool:
         if screen.remote_control_says_retry(lines):
             win_console.type_line(pid, "")  # "Continue" is selected
             return True
+        if screen.remote_control_dialog_open(lines):
+            idle_since = None
+            dialog_until = dialog_until or time.time() + REMOTE_CONTROL_NOTICE_SEC
+            if time.time() > dialog_until:
+                # Remote Control still holds its connection: close the dialog (Esc = Continue),
+                # which leaves the connection as it is.
+                win_console.press_key(pid, "\x1b", 0x1B)
+                files.log_event(f"on-switch session={session}: Remote Control stayed connected; "
+                                "closed its dialog")
+                return False
+            continue
         if screen.is_busy(lines):
             idle_since = None
         elif idle_since is None:

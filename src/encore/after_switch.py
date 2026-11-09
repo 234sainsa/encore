@@ -134,7 +134,7 @@ def type_into(pid: int, sig: dict, session: str, transcript_path=None) -> bool:
             if not text.strip().startswith("/remote-control"):
                 time.sleep(2.0)
                 break
-            if not session_typing.remote_control_asked_retry(pid, deadline):
+            if not session_typing.remote_control_asked_retry(pid, deadline, session):
                 break
             # Remote Control still held the old account's connection. The dialog says: choose
             # Continue (done), wait about 10 seconds, then run /remote-control again.

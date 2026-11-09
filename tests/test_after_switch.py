@@ -113,7 +113,7 @@ class AfterSwitchTypingTests(Base):
         for name, fake in {
             "type_one": lambda pid, text, *a, **k: self.typed.append((pid, text)) or True,
             "limit_wait_on_screen": lambda pid: False,
-            "remote_control_asked_retry": lambda pid, deadline: False,
+            "remote_control_asked_retry": lambda pid, deadline, *a: False,
         }.items():
             p = mock.patch.object(session_typing, name, fake)
             p.start()
@@ -163,6 +163,8 @@ class ScreenAndTranscriptTests(unittest.TestCase):
         lines, row = self.screen("❯\xa0", busy=True)
         self.assertFalse(screen.prompt_ready(lines, (2, row)))
         self.assertTrue(screen.is_busy(["* Julienning…(19s · ↓ 96 tokens)", self.RULE, "❯ busy draft"]))
+        self.assertTrue(screen.is_busy(["✽ Cerebrating… (1m 49s · ↓ 4.9k tokens)", self.RULE, "❯"]))
+        self.assertTrue(screen.is_busy(["* Beboppin'… (running PreToolUse hooks… 6/7 · 4m 36s ·", self.RULE, "❯"]))
         self.assertFalse(screen.is_busy(["✻ Churned for 37s · done 9:51 AM", self.RULE, "❯"]))
         dialog = ["", "Remote Control", "❯ 1. Disconnect", "  2. Cancel", ""]   # a menu, not the input box
         self.assertFalse(screen.prompt_ready(dialog + [self.RULE], (0, 0)))
@@ -185,6 +187,44 @@ class ScreenAndTranscriptTests(unittest.TestCase):
                   "   ❯ Continue", "   Enter to select · Esc to continue"]
         self.assertTrue(screen.remote_control_says_retry(dialog))
         self.assertFalse(screen.remote_control_says_retry(["  /remote-control is active · Continue here"]))
+        self.assertTrue(screen.remote_control_dialog_open(self.RC_CONNECTED))
+        self.assertFalse(screen.remote_control_dialog_open(["● Remote Control disconnected", self.RULE, "❯"]))
+
+    RC_CONNECTED = ["   Remote Control", "", "     Disconnect this session", "     Show QR code",
+                    "   ❯ Continue", "", "   Enter to select · Esc to continue"]
+    RC_RETRY = ["   Remote Control", "   × Remote Control isn't connected.",
+                "   To try again, choose Continue, wait about 10", "   seconds for Remote Control to switch off,",
+                "     Disconnect this session", "   ❯ Continue", "   Enter to select · Esc to continue"]
+
+    @unittest.skipUnless(os.name == "nt", "typing into sessions is Windows only")
+    def test_dialog_that_turns_into_retry_is_answered(self):
+        # /remote-control typed before Remote Control noticed the switch: the dialog opens in the
+        # connected state and turns into the "try again" one about 12 seconds later.
+        from encore import session_typing, win_console
+        screens = [self.RC_CONNECTED] * 15 + [self.RC_RETRY]
+        clock = iter(range(10 ** 6))
+        typed, pressed = [], []
+        with mock.patch.object(win_console, "read_screen", lambda pid: (screens.pop(0), (0, 0))), \
+                mock.patch.object(win_console, "type_line", lambda pid, text: typed.append(text)), \
+                mock.patch.object(win_console, "press_key", lambda *a, **k: pressed.append(a)), \
+                mock.patch.object(session_typing.time, "sleep", lambda s: None), \
+                mock.patch.object(session_typing.time, "time", lambda: float(next(clock))):
+            self.assertTrue(session_typing.remote_control_asked_retry(1, 10 ** 5, "s"))
+        self.assertEqual((typed, pressed), ([""], []))
+
+    @unittest.skipUnless(os.name == "nt", "typing into sessions is Windows only")
+    def test_dialog_that_stays_connected_is_closed(self):
+        from encore import session_typing, win_console
+        clock = iter(range(10 ** 6))
+        pressed = []
+        with mock.patch.object(win_console, "read_screen", lambda pid: (self.RC_CONNECTED, (0, 0))), \
+                mock.patch.object(win_console, "type_line", lambda pid, text: self.fail("typed")), \
+                mock.patch.object(win_console, "press_key", lambda *a, **k: pressed.append(a[1])), \
+                mock.patch.object(session_typing.time, "sleep", lambda s: None), \
+                mock.patch.object(session_typing.time, "time", lambda: float(next(clock))), \
+                mock.patch.object(files, "log_event", lambda text: None):
+            self.assertFalse(session_typing.remote_control_asked_retry(1, 10 ** 5, "s"))
+        self.assertEqual(pressed, ["\x1b"])
 
     def write(self, records):
         f = tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False, encoding="utf-8")

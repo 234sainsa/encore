@@ -25,7 +25,9 @@ def input_box(lines: list):
     return None
 
 
-_SPINNER = re.compile(r"…\s*\(\d+s")  # "✻ Stewing… (12s · ↓ 24 tokens)"
+# "✻ Stewing… (12s · ↓ 24 tokens)", "✽ Cerebrating… (1m 49s · ↓ 4.9k tokens)",
+# "* Beboppin'… (running PreToolUse hooks… 6/7 · 4m 36s · ↓ 12.0k tokens)"
+_SPINNER = re.compile(r"…\s*\([^)\n]*?\b\d+[hms]\b")
 
 
 def is_busy(lines: list) -> bool:
@@ -67,3 +69,13 @@ def remote_control_says_retry(lines: list) -> bool:
     choose Continue, wait about 10 seconds ..., then run /remote-control." (Continue is selected)."""
     text = " ".join(lines[-20:])
     return "try again, choose Continue" in text and "Remote Control" in text
+
+
+def remote_control_dialog_open(lines: list) -> bool:
+    """The /remote-control dialog (Disconnect / QR code / Continue) is open, in any state.
+
+    Claude Code keeps the open dialog up to date: opened before Remote Control noticed the
+    account change, it shows the connected state first and turns into the "try again" one when
+    Remote Control notices (seen 2 to 15 seconds after a switch)."""
+    text = " ".join(lines[-20:])
+    return "Remote Control" in text and "Disconnect" in text and "Enter to select" in text
