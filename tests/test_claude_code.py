@@ -61,6 +61,7 @@ class InstallTests(Base):
         fc = s["hooks"]["FileChanged"][0]
         self.assertEqual(fc["matcher"], "switched.json")
         self.assertTrue(fc["hooks"][0]["async"] and fc["hooks"][0]["asyncRewake"])
+        self.assertEqual(len(s["hooks"]["CwdChanged"]), 1)
         self.assertEqual(state.load()["statusline_then"], "my-line")
         self.quiet(commands.cmd_uninstall)
         s = claude_settings.load()
@@ -93,6 +94,18 @@ class InstallTests(Base):
         self.quiet(commands.cmd_install)
         self.quiet(commands.cmd_uninstall)
         self.assertEqual(claude_settings.load()["env"][key], "60000")
+
+    def test_session_start_adds_hooks_that_an_older_install_lacks(self):
+        self.quiet(commands.cmd_install)
+        s = claude_settings.load()
+        del s["hooks"]["CwdChanged"]
+        claude_settings.save(s)
+        claude_settings.add_missing_hooks()
+        self.assertEqual(len(claude_settings.load()["hooks"]["CwdChanged"]), 1)
+        # Not installed (after uninstall): nothing is added.
+        self.quiet(commands.cmd_uninstall)
+        claude_settings.add_missing_hooks()
+        self.assertNotIn("hooks", claude_settings.load())
 
     def test_only_command_lines_that_run_encore_are_ours(self):
         self.assertTrue(claude_settings.is_ours('"C:/py.exe" "C:/src/encore/encore.py" statusline'))

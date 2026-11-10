@@ -43,9 +43,19 @@ def session_start() -> int:
             profiles.sync_back()  # e.g. after `claude auth login` outside a session
         claude_settings.drop_old_api_key_helper()
         claude_settings.add_stop_at_limit()  # for installs made before 1.3
+        claude_settings.add_missing_hooks()  # e.g. CwdChanged, for installs made before 1.3
     except Exception:
         pass
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart",
+                                             "watchPaths": [str(switch_signal.path())]}}))
+    return 0
+
+
+def cwd_changed() -> int:
+    """CwdChanged: keep switched.json watched. When the working folder changes, Claude Code
+    replaces the watched files with what this hook answers."""
+    sys.stdin.read()
+    print(json.dumps({"hookSpecificOutput": {"hookEventName": "CwdChanged",
                                              "watchPaths": [str(switch_signal.path())]}}))
     return 0
 

@@ -8,6 +8,12 @@ from __future__ import annotations
 import re
 
 
+# The mark at the start of the input box. A console that Claude Code thinks cannot show Unicode
+# (e.g. a plain console window, not Windows Terminal) gets plain marks instead: ">" for "❯"
+# (and "√" for "✔", "( )" for "◯"), seen on 2026-11-10.
+_BOX_MARKS = ("❯", ">")
+
+
 def input_box(lines: list):
     """(row, column where the text starts, text) of Claude Code's input box.
 
@@ -18,9 +24,10 @@ def input_box(lines: list):
         return None
     for k in range(len(rows) - 1, 0, -1):
         line = lines[rows[k]]
+        mark = next((m for m in _BOX_MARKS if line.lstrip().startswith(m)), None)
         # (The rule is matched loosely: a half-redrawn screen can leave other text on its line.)
-        if line.lstrip().startswith("❯") and "─" * 20 in lines[rows[k - 1]]:
-            start = line.index("❯") + 2
+        if mark and "─" * 20 in lines[rows[k - 1]]:
+            start = line.index(mark) + 2
             return rows[k], start, line[start - 1:].strip()
     return None
 

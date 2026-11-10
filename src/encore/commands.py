@@ -219,7 +219,7 @@ def cmd_install() -> None:
     if moved:
         print(f"Moved the profiles from {moved} to {paths.home()}.")
     kept_old_line = claude_settings.install()
-    print(f"Installed the status line and the hooks (StopFailure, SessionStart, FileChanged) "
+    print(f"Installed the status line and the hooks (StopFailure, SessionStart, FileChanged, CwdChanged) "
           f"in {paths.settings_path()}.")
     print("At the usage limit, encore now moves to the account that can be used first.")
     print("Sessions started from now on get the on-switch commands typed in after a switch "

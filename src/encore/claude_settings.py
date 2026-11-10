@@ -13,7 +13,7 @@ from . import files, on_switch, paths, state, switch_signal
 
 _RUNS_ENCORE = re.compile(r'(?:encore\.py"?|-m encore) [a-z-]+$')
 
-OUR_HOOK_EVENTS = ("StopFailure", "SessionStart", "FileChanged")
+OUR_HOOK_EVENTS = ("StopFailure", "SessionStart", "FileChanged", "CwdChanged")
 
 
 def load() -> dict:
@@ -56,6 +56,10 @@ def _our_hooks(cmd: str) -> dict:
                         "hooks": [{"type": "command", "command": f"{cmd} hook-switched",
                                    "async": True, "asyncRewake": True,
                                    "timeout": int(on_switch.DEFAULTS["wait_sec"]) + 60}]},
+        # When the session's working folder changes, Claude Code replaces the watched files with
+        # what the CwdChanged hooks answer (nothing, without this hook): switched.json would no
+        # longer be watched and the session would not hear about later switches.
+        "CwdChanged": {"hooks": [{"type": "command", "command": f"{cmd} hook-cwd-changed"}]},
     }
 
 
@@ -93,6 +97,22 @@ def _drop_stop_at_limit(s: dict, st: dict) -> None:
         del env[key]
         if not env:
             del s["env"]
+
+
+def add_missing_hooks() -> None:
+    """For installs made before a hook was added: put in the hooks of ours that are missing.
+    Does nothing when encore's hooks are not installed (after `encore uninstall`)."""
+    s = load()
+    hooks = s.get("hooks")
+    if not isinstance(hooks, dict) or not any(_has_ours(g) for g in hooks.get("FileChanged", [])):
+        return
+    missing = {event: group for event, group in _our_hooks(paths.self_command()).items()
+               if not any(_has_ours(g) for g in hooks.get(event, []))}
+    if not missing:
+        return
+    for event, group in missing.items():
+        hooks[event] = list(hooks.get(event, [])) + [group]
+    save(s)
 
 
 def install() -> bool:

@@ -49,6 +49,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("auto-check", help=argparse.SUPPRESS)
     sub.add_parser("hook-session-start", help=argparse.SUPPRESS)
     sub.add_parser("hook-switched", help=argparse.SUPPRESS)
+    sub.add_parser("hook-cwd-changed", help=argparse.SUPPRESS)
     # Run by encore itself, in the background after a switch (Windows).
     x = sub.add_parser("after-switch", help=argparse.SUPPRESS)
     x.add_argument("--pid", type=int)
@@ -98,6 +99,8 @@ def run(a: argparse.Namespace) -> int:
         return hooks.session_start()
     elif a.cmd == "hook-switched":
         return hooks.switched()
+    elif a.cmd == "hook-cwd-changed":
+        return hooks.cwd_changed()
     elif a.cmd == "after-switch":
         if not IS_WIN:
             return 0

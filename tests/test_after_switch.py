@@ -92,6 +92,14 @@ class SignalTests(Base):
         data = json.loads(out.getvalue())
         self.assertEqual(data["hookSpecificOutput"]["watchPaths"], [str(switch_signal.path())])
 
+    def test_cwd_change_keeps_the_signal_watched(self):
+        # Claude Code replaces the watched files with what the CwdChanged hooks answer.
+        out = io.StringIO()
+        with mock.patch("sys.stdin", io.StringIO("{}")), redirect_stdout(out):
+            hooks.cwd_changed()
+        data = json.loads(out.getvalue())["hookSpecificOutput"]
+        self.assertEqual((data["hookEventName"], data["watchPaths"]), ("CwdChanged", [str(switch_signal.path())]))
+
     def test_switch_starts_after_switch_on_windows(self):
         # Claude Code does not always run the FileChanged hook: every switch types by itself too.
         with mock.patch("encore.switching.IS_WIN", True):
@@ -168,6 +176,19 @@ class ScreenAndTranscriptTests(unittest.TestCase):
         self.assertFalse(screen.is_busy(["✻ Churned for 37s · done 9:51 AM", self.RULE, "❯"]))
         dialog = ["", "Remote Control", "❯ 1. Disconnect", "  2. Cancel", ""]   # a menu, not the input box
         self.assertFalse(screen.prompt_ready(dialog + [self.RULE], (0, 0)))
+
+    def test_input_box_with_plain_marks(self):
+        # A console without Unicode marks (seen on a real screen): ">" for "❯", "√" for "✔".
+        lines = ["● done", "                √ Update installed · Restart to update", self.RULE, ">",
+                 self.RULE, "  ⏵⏵ auto mode on (shift+tab to cycle) · ← 1 agent", "", "  ● main",
+                 "  ( ) general-purpose  run… 11m 30s · ↓ 263.1k tokens"]
+        row = lines.index(">")
+        self.assertEqual(screen.input_box(lines), (row, 2, ""))
+        self.assertTrue(screen.prompt_ready(lines, (2, row)))
+        lines[row] = ">\xa0draft"
+        self.assertEqual(screen.input_box(lines)[2], "draft")
+        menu = ["", "Remote Control", "> 1. Disconnect", "  2. Cancel", "", "Enter to select"]
+        self.assertIsNone(screen.input_box(menu + [self.RULE]))
 
     def test_waiting_for_reset(self):
         lines, _ = self.screen("❯\xa0")
