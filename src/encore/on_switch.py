@@ -8,8 +8,8 @@ DEFAULTS = {
     "commands": ["/remote-control"],   # typed into every running session after a switch
     # Typed too when the session had stopped at a usage limit. It is one line (Enter sends it).
     "continue_text": ("上限のためアカウントを切り替えました。続きをしてください。"
-                      "切り替えの時に動いていたサブエージェントは止まっているかもしれません。"
-                      "1 体ずつ確かめて、止まっていたらやり直してください。"),
+                      "切り替えの時に動いていたサブエージェントは、上限で止まっているかもしれません。"
+                      "1 体ずつ確かめて、止まっていたら最初からではなく、止まった所から続けさせてください。"),
     "wait_sec": 600,                   # how long to wait for the session to become idle
 }
 

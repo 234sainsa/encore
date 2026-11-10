@@ -42,6 +42,7 @@ def session_start() -> int:
         with Lock(timeout=2.0):
             profiles.sync_back()  # e.g. after `claude auth login` outside a session
         claude_settings.drop_old_api_key_helper()
+        claude_settings.add_stop_at_limit()  # for installs made before 1.3
     except Exception:
         pass
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart",

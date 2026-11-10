@@ -1,8 +1,9 @@
-"""The background watcher (`encore auto-check`): near the limit, it asks Anthropic for the
-real numbers every minute and switches when the account in use is used up.
+"""The background watcher (`encore auto-check`), for an early switch only (`auto on --threshold`
+below 100): near that threshold, it asks Anthropic for the real numbers every minute and switches
+when the account in use reaches it.
 
-Claude Code does not end the turn at the usage limit (it waits: "Retrying in 5h"), so no hook
-tells encore about it, and the status line does not run again while it waits.
+At the default 100% there is no watcher: the switch comes from the StopFailure hook when Claude
+Code is really refused. (Anthropic shows 100% a while before it refuses requests.)
 """
 from __future__ import annotations
 
@@ -23,11 +24,13 @@ def start() -> None:
 def watch_if_near_limit(windows) -> None:
     """Called by the status line with the usage of the account in use.
 
-    Near the limit, keep a watcher running that asks Anthropic for the real numbers every minute."""
+    Near an early-switch threshold, keep a watcher running that asks Anthropic for the real
+    numbers every minute."""
     a = state.load()["auto"]
-    if not a.get("enabled", True) or not windows:
+    threshold = auto_switch.current_threshold()
+    if not a.get("enabled", True) or not windows or threshold >= 100:
         return
-    if not any(w["pct"] >= min(auto_switch.current_threshold(), WATCH_FROM) for w in windows):
+    if not any(w["pct"] >= min(threshold, WATCH_FROM) for w in windows):
         return
     now = time.time()
     with state.edit() as st:

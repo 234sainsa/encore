@@ -34,7 +34,7 @@ class AutoTests(Base):
         self.assertEqual(profiles.current_profile(), "a")
         self.full("a", 2)
         self.full("b", 1)
-        self.assertEqual(auto_switch.switch_if_at_limit(), "c")  # 'c' can be used now
+        self.assertEqual(auto_switch.switch_if_at_limit(limit_hit=True), "c")  # 'c' can be used now
         self.assertEqual(profiles.current_profile(), "c")
         self.assertEqual(files.read_json(switch_signal.path())["to"], "c")  # running sessions are told
 
@@ -42,9 +42,16 @@ class AutoTests(Base):
         self.full("a", 3)
         self.full("b", 1)
         self.full("c", 2)
-        self.assertEqual(auto_switch.switch_if_at_limit(), "b")
-        self.assertIsNone(auto_switch.switch_if_at_limit())   # 'b' resets first: no further switch
+        self.assertEqual(auto_switch.switch_if_at_limit(limit_hit=True), "b")
+        # 'b' resets first: no further switch
+        self.assertIsNone(auto_switch.switch_if_at_limit(limit_hit=True))
         self.assertEqual(profiles.current_profile(), "b")
+
+    def test_100_percent_alone_does_not_switch(self):
+        # Anthropic shows 100% a while before it refuses requests: use the account up first.
+        self.full("a", 2)
+        self.assertIsNone(auto_switch.switch_if_at_limit())
+        self.assertEqual(profiles.current_profile(), "a")
 
     def test_off_does_nothing(self):
         self.quiet(commands.cmd_auto, False, None)
@@ -63,12 +70,19 @@ class AutoTests(Base):
         with mock.patch("sys.stdin", io.StringIO(json.dumps(data))), redirect_stdout(io.StringIO()):
             statusline.run()
 
-    def test_statusline_starts_one_watcher_near_the_limit(self):
+    def test_no_watcher_at_the_default_threshold(self):
+        started = []
+        with mock.patch.object(watcher, "start", lambda: started.append(1)):
+            self.render(100)
+        self.assertEqual(started, [])  # the switch waits for the StopFailure hook
+
+    def test_statusline_starts_one_watcher_near_an_early_threshold(self):
+        self.quiet(commands.cmd_auto, True, 95)
         started = []
         with mock.patch.object(watcher, "start", lambda: started.append(1)):
             self.render(80)
-            self.render(99)
-            self.render(99)  # the watcher is alive: no second one
+            self.render(91)
+            self.render(91)  # the watcher is alive: no second one
         self.assertEqual(started, [1])
         self.assertGreater(state.load()["auto"]["watch_until"], time.time() + 25 * 60)
 
@@ -76,19 +90,21 @@ class AutoTests(Base):
         with state.edit() as s:
             s["auto"]["watch_until"] = 0  # the status line stopped seeing high usage
 
-    def test_watcher_switches_when_anthropic_says_100(self):
-        # The status line said 99% (numbers of the last request that worked); Anthropic says 100%.
+    def test_watcher_switches_at_an_early_threshold(self):
+        # The status line said 90% (numbers of the last request that worked); Anthropic says 96%.
+        self.quiet(commands.cmd_auto, True, 95)
         with state.edit() as st:
             st["auto"]["watch_until"] = time.time() + 600
-        self.full("a", 30)
+        usage.record_usage("a", [{"label": "7d", "pct": 96.0, "resets": time.time() + 3600}])
         with mock.patch.object(watcher.time, "sleep", self.stop_watching):
             watcher.run()
         self.assertEqual(profiles.current_profile(), "b")
 
-    def test_watcher_does_nothing_below_the_limit(self):
+    def test_watcher_does_nothing_below_the_threshold(self):
+        self.quiet(commands.cmd_auto, True, 95)
         with state.edit() as st:
             st["auto"]["watch_until"] = time.time() + 600
-        usage.record_usage("a", [{"label": "7d", "pct": 99.0, "resets": time.time() + 3600}])
+        usage.record_usage("a", [{"label": "7d", "pct": 94.0, "resets": time.time() + 3600}])
         with mock.patch.object(watcher.time, "sleep", self.stop_watching):
             watcher.run()
         self.assertEqual(profiles.current_profile(), "a")

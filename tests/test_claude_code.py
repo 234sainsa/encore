@@ -68,6 +68,32 @@ class InstallTests(Base):
         self.assertEqual(s["hooks"], {"Stop": [{"hooks": [{"type": "command", "command": "x"}]}]})
         self.assertEqual(s["theme"], "dark")
 
+    def test_install_makes_claude_code_stop_at_the_usage_limit(self):
+        key, value = claude_settings.STOP_AT_LIMIT
+        files.write_json(paths.settings_path(), {"env": {"CLAUDE_CODE_RETRY_WATCHDOG": "1"}})
+        self.quiet(commands.cmd_install)
+        self.assertEqual(claude_settings.load()["env"][key], value)
+        # Taken out by the person: it stays out (also when a new session starts).
+        s = claude_settings.load()
+        del s["env"][key]
+        claude_settings.save(s)
+        self.quiet(commands.cmd_install)
+        claude_settings.add_stop_at_limit()
+        self.assertNotIn(key, claude_settings.load()["env"])
+
+    def test_uninstall_takes_out_only_the_value_encore_put_in(self):
+        key, value = claude_settings.STOP_AT_LIMIT
+        self.quiet(commands.cmd_install)
+        self.quiet(commands.cmd_uninstall)
+        self.assertNotIn("env", claude_settings.load())
+        # A value the person set is theirs: install leaves it, uninstall too.
+        files.write_json(paths.settings_path(), {"env": {key: "60000"}})
+        with state.edit() as st:
+            st.pop("stop_at_limit_added", None)
+        self.quiet(commands.cmd_install)
+        self.quiet(commands.cmd_uninstall)
+        self.assertEqual(claude_settings.load()["env"][key], "60000")
+
     def test_only_command_lines_that_run_encore_are_ours(self):
         self.assertTrue(claude_settings.is_ours('"C:/py.exe" "C:/src/encore/encore.py" statusline'))
         self.assertTrue(claude_settings.is_ours('"/usr/bin/python3" -m encore hook-stop-failure'))

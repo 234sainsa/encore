@@ -27,14 +27,17 @@ def configure(on: bool, threshold: float | None) -> dict:
 def switch_if_at_limit(limit_hit: bool = False) -> str | None:
     """When the account in use is at its limit, move to the saved account that can be used first.
 
-    Called by the watcher (`auto-check`) and by the StopFailure hook (limit_hit=True). The usage
-    numbers come from Anthropic: the status line keeps the numbers of the last request that worked
-    (it showed 99% while the account was already at 100% and Claude Code was waiting with
-    "Retrying in 5h"). Returns the new account."""
+    Called by the StopFailure hook (limit_hit=True: Claude Code was really refused) and, only when
+    a threshold below 100% is set, by the watcher (`auto-check`). At 100% the numbers alone never
+    switch: Anthropic shows 100% a while before it refuses requests, and the rest of the account
+    would go unused. The numbers come from Anthropic: the status line keeps the numbers of the
+    last request that worked. Returns the new account."""
     st = state.load()
     if not st["auto"].get("enabled", True):
         return None
     threshold = current_threshold()
+    if not limit_hit and threshold >= 100:
+        return None  # wait until Claude Code is really refused (StopFailure)
     with Lock():
         cur = profiles.sync_back()
     if not cur:

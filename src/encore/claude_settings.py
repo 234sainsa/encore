@@ -63,6 +63,38 @@ def _has_ours(group: dict) -> bool:
     return any(is_ours(h.get("command")) for h in group.get("hooks", []))
 
 
+# With CLAUDE_CODE_RETRY_WATCHDOG=1, Claude Code does not stop at the usage limit: it waits for the
+# reset ("Retrying in 5h"), so no StopFailure hook runs and nothing switches. Its subagents wait
+# too, and keep the old login when they try again. A usage-limit wait of at most 1 ms makes Claude
+# Code stop at the limit instead (it still waits out overloaded servers). Without the watchdog
+# the value changes nothing.
+STOP_AT_LIMIT = ("CLAUDE_CODE_RETRY_WATCHDOG_MAX_USAGE_LIMIT_WAIT_MS", "1")
+
+
+def add_stop_at_limit() -> None:
+    """Put STOP_AT_LIMIT into the env of settings.json, once. When the person takes it out or sets
+    another value, it is left that way."""
+    key, value = STOP_AT_LIMIT
+    if state.load().get("stop_at_limit_added"):
+        return
+    s = load()
+    env = s.setdefault("env", {})
+    if key not in env:
+        env[key] = value
+        save(s)
+    with state.edit() as st:
+        st["stop_at_limit_added"] = True
+
+
+def _drop_stop_at_limit(s: dict, st: dict) -> None:
+    key, value = STOP_AT_LIMIT
+    env = s.get("env")
+    if st.pop("stop_at_limit_added", None) and isinstance(env, dict) and env.get(key) == value:
+        del env[key]
+        if not env:
+            del s["env"]
+
+
 def install() -> bool:
     """Add our status line and hooks, or bring ours up to date (a moved checkout, the old name).
     Returns True when the status line that was there before keeps showing after ours."""
@@ -79,6 +111,7 @@ def install() -> bool:
         if is_ours(s.get("apiKeyHelper")):
             del s["apiKeyHelper"]  # left by an older version (API keys are not used any more)
         save(s)
+    add_stop_at_limit()
     switch_signal.ensure_exists()
     return bool(st.get("statusline_then"))
 
@@ -103,4 +136,5 @@ def uninstall() -> None:
             del s["hooks"]
         if is_ours(s.get("apiKeyHelper")):
             del s["apiKeyHelper"]  # left by an older version
+        _drop_stop_at_limit(s, st)
         save(s)

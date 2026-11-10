@@ -8,7 +8,7 @@ Save your Claude accounts once. From then on, when Claude Code stops at the usag
 
 - **moves Claude Code to the account that can be used first.** An account that is not at its limit, or, if all of them are, the one whose limit resets first.
 - **moves every open session along.** Each running Claude Code session uses the new account from its next request. No restart, no sign-in.
-- **gets the stopped session going again.** The session that stopped at the limit is asked to continue and to restart stopped subagents. Remote Control is turned back on. (Windows)
+- **gets the stopped session going again.** The session that stopped at the limit is asked to continue, and to let subagents that stopped go on from where they stopped. Remote Control is turned back on. (Windows)
 
 You do not have to do anything. There is nothing to look after either: when a login expires, a plain `/login` in Claude Code is enough, and encore saves the new login. The status line shows the account in use and its 5-hour and weekly usage.
 
@@ -59,7 +59,7 @@ Running sessions use the new login from their next request. No restart needed.
 On Windows, encore also types into each session that was running before the switch (right after the switch, in the background; each step is written to `~/.encore/events.log`):
 
 - `/remote-control` (Remote Control disconnects when the account changes).
-- If the session had stopped at the usage limit: a message asking Claude to continue and to restart subagents that stopped. Only this message reaches Claude.
+- If the session had stopped at the usage limit: a message asking Claude to continue, and to let subagents that stopped go on from where they stopped. Only this message reaches Claude.
 
 Anything you were typing is kept. Change what is typed with `encore on-switch set ...`, `on-switch continue "<text>"`, or `on-switch clear`.
 
@@ -67,6 +67,7 @@ Anything you were typing is kept. Change what is typed with `encore on-switch se
 
 - A saved login lasts about one month. When it expires, run `/login` in Claude Code with the same account; encore keeps the new login by itself. (`encore use` to an expired profile offers the sign-in right away.)
 - Data is stored in `~/.encore`.
+- `encore install` adds `CLAUDE_CODE_RETRY_WATCHDOG_MAX_USAGE_LIMIT_WAIT_MS=1` to the `env` of Claude Code's settings.json. With `CLAUDE_CODE_RETRY_WATCHDOG=1`, Claude Code would otherwise wait at the usage limit until it resets instead of stopping, and nothing would switch; its subagents would wait too, still on the old account. Without the watchdog this value changes nothing. If you remove it or set your own value, encore leaves it that way.
 
 ## Upgrading from 1.0
 

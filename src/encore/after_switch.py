@@ -31,8 +31,9 @@ def notice_after_typing(sig: dict) -> str:
     return (
         f"encore (a hook the user installed): the login switched from '{sig.get('from')}' to "
         f"'{sig.get('to')}' at {usage.fmt_time(sig.get('at'))}; /remote-control was typed in. Subagents and background "
-        "agents that were running during the switch may have stopped. The user set up this hook so that each of "
-        "them is checked, one by one, and every one that stopped is started again.")
+        "agents that were running during the switch may have stopped at the usage limit. The user set up this "
+        "hook so that each of them is checked, one by one, and every one that stopped goes on from where it "
+        "stopped, with the work it had done (a message to it resumes it), rather than being started over.")
 
 
 def notice(sig: dict) -> str:
@@ -41,8 +42,9 @@ def notice(sig: dict) -> str:
         f"encore (a hook the user installed): the login switched from '{sig.get('from')}' to "
         f"'{sig.get('to')}' at {usage.fmt_time(sig.get('at'))}. Remote Control has likely disconnected; only the user "
         "can reconnect it (/remote-control). Subagents and background agents that were running during the "
-        "switch may have stopped. The user set up this hook to hear about Remote Control, and so that each "
-        "agent is checked, one by one, and every one that stopped is started again.")
+        "switch may have stopped at the usage limit. The user set up this hook to hear about Remote Control, "
+        "and so that each agent is checked, one by one, and every one that stopped goes on from where it "
+        "stopped, with the work it had done (a message to it resumes it), rather than being started over.")
 
 
 def type_after_switch(data: dict, sig: dict) -> bool:
