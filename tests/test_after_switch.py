@@ -136,6 +136,33 @@ class AfterSwitchTypingTests(Base):
         after_switch.type_into(11, dict(self.sig, seq=4), "s1")
         self.assertEqual(self.typed, [(11, "/remote-control"), (12, "/remote-control"), (11, "/remote-control")])
 
+    def make_session(self, pid, agent_records, agent_mtime):
+        # Claude Code's files: sessions/<pid>.json, the transcript, and one subagent's transcript.
+        (self.cfg / "sessions").mkdir(exist_ok=True)
+        (self.cfg / "sessions" / f"{pid}.json").write_text(json.dumps({"pid": pid, "sessionId": f"sid-{pid}"}),
+                                                          encoding="utf-8")
+        folder = self.cfg / "projects" / "C--work"
+        (folder / f"sid-{pid}" / "subagents").mkdir(parents=True)
+        (folder / f"sid-{pid}.jsonl").write_text(json.dumps(ScreenAndTranscriptTests.ASK) + "\n", encoding="utf-8")
+        agent = folder / f"sid-{pid}" / "subagents" / "agent-1.jsonl"
+        agent.write_text("".join(json.dumps(r) + "\n" for r in agent_records), encoding="utf-8")
+        os.utime(agent, (agent_mtime, agent_mtime))
+
+    def test_a_session_whose_subagent_stopped_gets_the_continue_text(self):
+        # Only a subagent stopped at the limit; the session itself went on. Its model heard only
+        # "you've hit your limit, resets at ...", so it is told about the switch too.
+        self.make_session(11, [ScreenAndTranscriptTests.ASK, ScreenAndTranscriptTests.LIMIT], self.sig["at"] - 5)
+        self.make_session(12, [ScreenAndTranscriptTests.ASK, ScreenAndTranscriptTests.REPLY], self.sig["at"] - 5)
+        self.make_session(13, [ScreenAndTranscriptTests.ASK, ScreenAndTranscriptTests.LIMIT],  # stopped long before
+                          self.sig["at"] - after_switch.AGENT_WINDOW_SEC - 60)
+        with mock.patch.object(after_switch.time, "sleep", lambda s: None):
+            self.assertTrue(after_switch.type_into(11, self.sig, "s1"))
+            self.assertFalse(after_switch.type_into(12, self.sig, "s2"))
+            self.assertFalse(after_switch.type_into(13, self.sig, "s3"))
+        resume = on_switch.config()["continue_text"]
+        self.assertEqual(self.typed, [(11, "/remote-control"), (11, resume),
+                                      (12, "/remote-control"), (13, "/remote-control")])
+
     def test_only_sessions_from_before_the_switch(self):
         files.write_json(switch_signal.path(), self.sig)
         with mock.patch.object(self.win_console, "session_pids", lambda: [11, 12, 13]), \

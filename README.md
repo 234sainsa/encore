@@ -59,7 +59,7 @@ Running sessions use the new login from their next request. No restart needed.
 On Windows, encore also types into each session that was running before the switch (right after the switch, in the background; each step is written to `~/.encore/events.log`):
 
 - `/remote-control` (Remote Control disconnects when the account changes).
-- If the session had stopped at the usage limit: a message asking Claude to continue, and to let subagents that stopped go on from where they stopped. Only this message reaches Claude.
+- If the session, or one of its subagents, had stopped at the usage limit: a message asking Claude to continue, and to let subagents that stopped go on from where they stopped. Only this message reaches Claude.
 
 Anything you were typing is kept. Change what is typed with `encore on-switch set ...`, `on-switch continue "<text>"`, or `on-switch clear`.
 

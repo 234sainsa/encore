@@ -51,8 +51,8 @@ def type_after_switch(data: dict, sig: dict) -> bool:
     """Windows, from the FileChanged hook: type the on-switch commands into this session, and the
     continue text when it had stopped at the limit.
 
-    Returns True when the session had stopped at the limit (it got the continue text, which also
-    asks about stopped subagents)."""
+    Returns True when the session, or one of its subagents, had stopped at the limit (it got the
+    continue text, which also asks about stopped subagents)."""
     from . import win_console  # Windows only (ctypes)
 
     session = str(data.get("session_id") or "?")[:8]
@@ -105,10 +105,10 @@ def _current_switch():
 
 def type_into(pid: int, sig: dict, session: str, transcript_path=None) -> bool:
     """Type the on-switch commands into the session in the console of `pid`, and the continue text
-    when it had stopped at the limit. Once per session and switch: both the FileChanged hook and
-    `after-switch` may get here for the same session.
+    when it, or one of its subagents, had stopped at the limit. Once per session and switch: both
+    the FileChanged hook and `after-switch` may get here for the same session.
 
-    Returns True when the session had stopped at the limit."""
+    Returns True when the continue text was due (it also asks about stopped subagents)."""
     from . import session_typing  # Windows only (ctypes)
 
     cfg = on_switch.config()
@@ -119,6 +119,7 @@ def type_into(pid: int, sig: dict, session: str, transcript_path=None) -> bool:
     if not switch_signal.first_notice(f"pid{pid}", sig["seq"]):
         return False  # already typed into for this switch
     deadline = time.time() + float(cfg.get("wait_sec") or 600)
+    path = transcript_path or transcript.of_pid(pid)  # `after-switch` knows only the pid
     # A session stopped at the old login's limit waits for that limit to reset. Cancel the wait
     # (Esc) and send the continue text, so it goes on with the new login now.
     stopped = False
@@ -127,19 +128,43 @@ def type_into(pid: int, sig: dict, session: str, transcript_path=None) -> bool:
         if stopped:
             # Cancel the wait first: while it lasts, typed commands would only be queued.
             session_typing.cancel_limit_wait(pid, session)
-        stopped = stopped or transcript.stopped_at_limit(transcript_path)
-    todo = commands + ([resume] if stopped else [])
-    for i, text in enumerate(todo):
-        for attempt in range(3):
-            if not session_typing.type_one(pid, text, deadline, session, cancel_wait=(i == len(commands))):
-                return stopped
-            if not text.strip().startswith("/remote-control"):
-                time.sleep(2.0)
-                break
-            if not session_typing.remote_control_asked_retry(pid, deadline, session):
-                break
-            # Remote Control still held the old account's connection. The dialog says: choose
-            # Continue (done), wait about 10 seconds, then run /remote-control again.
-            files.log_event(f"on-switch session={session}: Remote Control asked to retry; waiting")
-            time.sleep(12.0)
-    return stopped
+        stopped = stopped or transcript.stopped_at_limit(path)
+    for text in commands:
+        if not _type_command(pid, text, deadline, session):
+            return stopped
+    if not resume:
+        return False
+    if not stopped:
+        # The session went on, but a subagent may have stopped at the limit: its parent hears only
+        # "failed: you've hit your limit, resets at ...", and may wait for that reset. Checked after
+        # the commands, so that agents whose last request failed just after the switch count too.
+        # (The FileChanged hook tells the model about its agents, but Claude Code does not always
+        # run that hook.)
+        if not transcript.agent_stopped_at_limit(path, float(sig.get("at") or 0) - AGENT_WINDOW_SEC):
+            return False
+        files.log_event(f"on-switch session={session}: a subagent stopped at the limit")
+    session_typing.type_one(pid, resume, deadline, session, cancel_wait=True)
+    return True
+
+
+# Subagents written to this long before the switch, or later, are checked for a stop at the limit.
+AGENT_WINDOW_SEC = 600
+
+
+def _type_command(pid: int, text: str, deadline: float, session: str) -> bool:
+    """Type one on-switch command. False when the session never became ready for it."""
+    from . import session_typing  # Windows only (ctypes)
+
+    for attempt in range(3):
+        if not session_typing.type_one(pid, text, deadline, session, cancel_wait=False):
+            return False
+        if not text.strip().startswith("/remote-control"):
+            time.sleep(2.0)
+            return True
+        if not session_typing.remote_control_asked_retry(pid, deadline, session):
+            return True
+        # Remote Control still held the old account's connection. The dialog says: choose
+        # Continue (done), wait about 10 seconds, then run /remote-control again.
+        files.log_event(f"on-switch session={session}: Remote Control asked to retry; waiting")
+        time.sleep(12.0)
+    return True

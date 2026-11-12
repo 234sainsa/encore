@@ -5,7 +5,7 @@ Layers. A module imports only from its own layer or the layers above it, never f
   shared        this file (VERSION, Error, IS_WIN, IS_MAC), paths, files, lock, state, background
   data          credentials, claude_login, profiles, switch_signal, on_switch, claude_settings
   core          switching, usage, auto_switch, watcher
-  after switch  screen, transcript (pure parsing), win_console, session_typing (Windows only),
+  after switch  screen, transcript (reads transcripts only), win_console, session_typing (Windows only),
                 after_switch (what a session gets after a switch)
   edges         cli, commands, setup_menu (for people); statusline, hooks (run by Claude Code);
                 auto-check, after-switch (run by encore itself, in the background)
