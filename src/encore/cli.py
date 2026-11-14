@@ -53,6 +53,7 @@ def build_parser() -> argparse.ArgumentParser:
     # Run by encore itself, in the background after a switch (Windows).
     x = sub.add_parser("after-switch", help=argparse.SUPPRESS)
     x.add_argument("--pid", type=int)
+    x.add_argument("--watch", type=int)
     return p
 
 
@@ -104,7 +105,9 @@ def run(a: argparse.Namespace) -> int:
     elif a.cmd == "after-switch":
         if not IS_WIN:
             return 0
-        if a.pid:
+        if a.watch:
+            after_switch.watch_one(a.watch)
+        elif a.pid:
             after_switch.type_into_one(a.pid)
         else:
             after_switch.type_into_all()

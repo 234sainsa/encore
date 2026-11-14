@@ -3,6 +3,7 @@ model is told.
 """
 from __future__ import annotations
 
+import os
 import time
 
 from . import IS_WIN, background, files, on_switch, switch_signal, transcript, usage
@@ -158,6 +159,9 @@ def type_into(pid: int, sig: dict, session: str, transcript_path=None) -> bool:
             # always run that hook.)
             files.log_event(f"on-switch session={session}: a subagent stopped at the limit")
         else:
+            # Claude Code may still add the note to a later turn: it holds on to the old login's
+            # limit until the user types a prompt. Watch the transcript for it in the background.
+            background.start(f"after-switch --watch {pid}")
             return False
         # Both are checked after the commands, so that a note or a refusal that came just after
         # the switch counts too.
@@ -167,6 +171,56 @@ def type_into(pid: int, sig: dict, session: str, transcript_path=None) -> bool:
 
 # Subagents written to this long before the switch, or later, are checked for a stop at the limit.
 AGENT_WINDOW_SEC = 600
+
+# How long after a switch, and how often, a session's transcript is watched for the old limit note.
+WATCH_SEC = 3 * 3600
+WATCH_POLL_SEC = 10
+
+
+def watch_one(pid: int) -> None:
+    """Windows, `encore after-switch --watch <pid>`: type the continue text when Claude Code tells
+    the model, after the switch, that the old login's limit was reached.
+
+    Claude Code adds that note to the session's next turn, which may come long after the switch
+    (a subagent's report wakes it), and adds it again each turn until the user types a prompt.
+    Stops at a newer switch, when the session ends, or after WATCH_SEC."""
+    from . import session_typing, win_console  # Windows only (ctypes)
+
+    sig = _current_switch()
+    resume = on_switch.config().get("continue_text") or ""
+    born = win_console.started_at(pid)
+    if sig is None or not resume or born is None:
+        return
+    at = float(sig.get("at") or 0)
+    seen = None
+    while time.time() < at + WATCH_SEC:
+        time.sleep(WATCH_POLL_SEC)
+        if win_console.started_at(pid) != born:
+            return  # the session ended
+        now_sig = _current_switch()
+        if not now_sig or now_sig.get("seq") != sig["seq"]:
+            return  # a newer switch takes over
+        path = transcript.of_pid(pid)  # changes with /clear
+        try:
+            stamp = (path, os.stat(transcript._long(path)).st_mtime) if path else None
+        except OSError:
+            stamp = None
+        if stamp is None or stamp == seen:
+            continue
+        seen = stamp
+        if not transcript.limit_note_left(path, at - AGENT_WINDOW_SEC):
+            continue
+        # The note is right when the new login is at its limit too (encore then had nowhere to go).
+        until, source = usage.usable_from(str(sig.get("to")), time.time())
+        if until > time.time() + 60:
+            files.log_event(f"on-switch session=pid{pid}: the limit note is about '{sig.get('to')}' itself "
+                            f"(usable from {usage.fmt_time(until)}, {source}); not typing")
+            return
+        files.log_event(f"on-switch session=pid{pid}: the model was told the old login's limit was reached "
+                        "(a later turn)")
+        session_typing.type_one(pid, resume, time.time() + float(on_switch.config().get("wait_sec") or 600),
+                                f"pid{pid}", cancel_wait=True)
+        return
 
 
 def _type_command(pid: int, text: str, deadline: float, session: str) -> bool:

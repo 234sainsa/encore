@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
@@ -186,6 +187,45 @@ class AfterSwitchTypingTests(Base):
         resume = on_switch.config()["continue_text"]
         self.assertEqual(self.typed, [(11, "/remote-control"), (11, resume),
                                       (12, "/remote-control"), (13, "/remote-control")])
+        # The others are watched: Claude Code may add the note to a later turn.
+        self.assertEqual(self.started, ["after-switch --watch 12", "after-switch --watch 13"])
+
+    def watch(self, pid, usable_in=0, newer=False):
+        """Run `after-switch --watch` on a session whose next turn after a switch carried the note."""
+        from datetime import datetime, timezone
+        now = time.time()
+        sig = dict(self.sig, at=now - 30)
+        files.write_json(switch_signal.path(), sig)
+        stamp = datetime.fromtimestamp(now - 5, timezone.utc).isoformat().replace("+00:00", "Z")
+        note = {"type": "user", "isMeta": True, "usageLimitNote": "wrap_up", "timestamp": stamp,
+                "message": {"role": "user", "content": transcript.LIMIT_NOTE + "]"}}
+        self.make_session(pid, [ScreenAndTranscriptTests.REPLY], now - 60)
+        with open(self.cfg / "projects" / "C--work" / f"sid-{pid}.jsonl", "a", encoding="utf-8") as f:
+            f.write(json.dumps(note) + "\n")
+        sleeps = []
+
+        def sleep(sec):
+            sleeps.append(sec)
+            if newer:
+                files.write_json(switch_signal.path(), dict(sig, seq=sig["seq"] + 1))
+        with mock.patch.object(after_switch.time, "sleep", sleep), \
+                mock.patch.object(self.win_console, "started_at", lambda p: 900.0), \
+                mock.patch.object(after_switch.usage, "usable_from",
+                                  lambda name, t, *a, **k: (t + usable_in, "now")):
+            after_switch.watch_one(pid)
+        return sleeps
+
+    def test_watch_types_the_continue_text_when_a_later_turn_gets_the_note(self):
+        self.watch(21)
+        self.assertEqual(self.typed, [(21, on_switch.config()["continue_text"])])
+
+    def test_watch_leaves_a_note_about_the_new_login_alone(self):
+        self.watch(22, usable_in=3600)  # the new login is at its limit too
+        self.assertEqual(self.typed, [])
+
+    def test_watch_stops_at_a_newer_switch(self):
+        self.assertEqual(len(self.watch(23, newer=True)), 1)
+        self.assertEqual(self.typed, [])
 
     def test_only_sessions_from_before_the_switch(self):
         files.write_json(switch_signal.path(), self.sig)
