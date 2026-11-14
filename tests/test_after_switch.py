@@ -44,6 +44,7 @@ class SignalTests(Base):
         self.assertEqual(code, 2)
         self.assertIn("may have stopped", text)
         self.assertIn("checked, one by one", text)
+        self.assertIn("does not apply now", text)  # Claude Code's limit note was about the old login
         self.assertEqual(self.hook("s1", windows=True), (0, ""))
         self.hook("s2", windows=True)
         self.assertEqual(self.typed, ["s1", "s2"])
@@ -155,6 +156,29 @@ class AfterSwitchTypingTests(Base):
         self.make_session(12, [ScreenAndTranscriptTests.ASK, ScreenAndTranscriptTests.REPLY], self.sig["at"] - 5)
         self.make_session(13, [ScreenAndTranscriptTests.ASK, ScreenAndTranscriptTests.LIMIT],  # stopped long before
                           self.sig["at"] - after_switch.AGENT_WINDOW_SEC - 60)
+        with mock.patch.object(after_switch.time, "sleep", lambda s: None):
+            self.assertTrue(after_switch.type_into(11, self.sig, "s1"))
+            self.assertFalse(after_switch.type_into(12, self.sig, "s2"))
+            self.assertFalse(after_switch.type_into(13, self.sig, "s3"))
+        resume = on_switch.config()["continue_text"]
+        self.assertEqual(self.typed, [(11, "/remote-control"), (11, resume),
+                                      (12, "/remote-control"), (13, "/remote-control")])
+
+    def test_a_session_told_of_the_old_limit_gets_the_continue_text(self):
+        # No request was refused, but Claude Code told the model the limit was reached (it then
+        # winds down and stops). Only a typed prompt makes Claude Code take that note back.
+        # `cleared` has no "usageLimitNote" field: the text is the fallback.
+        note = {"type": "user", "isMeta": True, "usageLimitNote": "wrap_up",
+                "timestamp": "1970-01-01T00:16:43.000Z",  # at + 3
+                "message": {"role": "user", "content": transcript.LIMIT_NOTE + "; a short grace allowance remains]"}}
+        cleared = {"type": "user", "isMeta": True, "timestamp": "1970-01-01T00:16:50.000Z",
+                   "message": {"role": "user", "content": transcript.LIMIT_CLEARED_NOTE + ". Continue working.]"}}
+        old = dict(note, timestamp="1970-01-01T00:00:10.000Z")  # long before the switch
+        for pid, records in ((11, [note]), (12, [note, cleared]), (13, [old])):
+            self.make_session(pid, [ScreenAndTranscriptTests.REPLY], self.sig["at"] - 5)
+            path = self.cfg / "projects" / "C--work" / f"sid-{pid}.jsonl"
+            with open(path, "a", encoding="utf-8") as f:
+                f.write("".join(json.dumps(r) + "\n" for r in records + [ScreenAndTranscriptTests.REPLY]))
         with mock.patch.object(after_switch.time, "sleep", lambda s: None):
             self.assertTrue(after_switch.type_into(11, self.sig, "s1"))
             self.assertFalse(after_switch.type_into(12, self.sig, "s2"))

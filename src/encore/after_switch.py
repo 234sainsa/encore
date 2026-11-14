@@ -30,7 +30,8 @@ def notice_after_typing(sig: dict) -> str:
     the model still has to hear about its agents."""
     return (
         f"encore (a hook the user installed): the login switched from '{sig.get('from')}' to "
-        f"'{sig.get('to')}' at {usage.fmt_time(sig.get('at'))}; /remote-control was typed in. Subagents and background "
+        f"'{sig.get('to')}' at {usage.fmt_time(sig.get('at'))}; /remote-control was typed in. {_old_limit_note(sig)}"
+        "Subagents and background "
         "agents that were running during the switch may have stopped at the usage limit. The user set up this "
         "hook so that each of them is checked, one by one, and every one that stopped goes on from where it "
         "stopped, with the work it had done (a message to it resumes it), rather than being started over.")
@@ -40,11 +41,19 @@ def notice(sig: dict) -> str:
     # Written as a notice, not as orders: models rightly ignore orders that show up in tool output.
     return (
         f"encore (a hook the user installed): the login switched from '{sig.get('from')}' to "
-        f"'{sig.get('to')}' at {usage.fmt_time(sig.get('at'))}. Remote Control has likely disconnected; only the user "
+        f"'{sig.get('to')}' at {usage.fmt_time(sig.get('at'))}. {_old_limit_note(sig)}"
+        "Remote Control has likely disconnected; only the user "
         "can reconnect it (/remote-control). Subagents and background agents that were running during the "
         "switch may have stopped at the usage limit. The user set up this hook to hear about Remote Control, "
         "and so that each agent is checked, one by one, and every one that stopped goes on from where it "
         "stopped, with the work it had done (a message to it resumes it), rather than being started over.")
+
+
+def _old_limit_note(sig: dict) -> str:
+    """A "usage limit reached" note that Claude Code adds to the same turn was written for the old
+    login; the model would otherwise wind down and stop."""
+    return (f"If a note in this turn says the usage limit was reached, it was about '{sig.get('from')}', the "
+            "login from before the switch, and does not apply now. ")
 
 
 def type_after_switch(data: dict, sig: dict) -> bool:
@@ -135,14 +144,23 @@ def type_into(pid: int, sig: dict, session: str, transcript_path=None) -> bool:
     if not resume:
         return False
     if not stopped:
-        # The session went on, but a subagent may have stopped at the limit: its parent hears only
-        # "failed: you've hit your limit, resets at ...", and may wait for that reset. Checked after
-        # the commands, so that agents whose last request failed just after the switch count too.
-        # (The FileChanged hook tells the model about its agents, but Claude Code does not always
-        # run that hook.)
-        if not transcript.agent_stopped_at_limit(path, float(sig.get("at") or 0) - AGENT_WINDOW_SEC):
+        since = float(sig.get("at") or 0) - AGENT_WINDOW_SEC
+        if transcript.limit_note_left(path, since):
+            # No request was refused, but Claude Code told the model the old login's limit was
+            # reached (a short grace allowance, then stop), and the model winds down even with the
+            # new login. Claude Code takes the note back only with a prompt the user types, so the
+            # continue text is that prompt.
+            files.log_event(f"on-switch session={session}: the model was told the old login's limit was reached")
+        elif transcript.agent_stopped_at_limit(path, since):
+            # The session went on, but a subagent stopped at the limit: its parent hears only
+            # "failed: you've hit your limit, resets at ...", and may wait for that reset.
+            # (The FileChanged hook tells the model about its agents, but Claude Code does not
+            # always run that hook.)
+            files.log_event(f"on-switch session={session}: a subagent stopped at the limit")
+        else:
             return False
-        files.log_event(f"on-switch session={session}: a subagent stopped at the limit")
+        # Both are checked after the commands, so that a note or a refusal that came just after
+        # the switch counts too.
     session_typing.type_one(pid, resume, deadline, session, cancel_wait=True)
     return True
 
