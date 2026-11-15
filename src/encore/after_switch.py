@@ -132,16 +132,17 @@ def type_into(pid: int, sig: dict, session: str, transcript_path=None) -> bool:
     path = transcript_path or transcript.of_pid(pid)  # `after-switch` knows only the pid
     # A session stopped at the old login's limit waits for that limit to reset. Cancel the wait
     # (Esc) and send the continue text, so it goes on with the new login now.
-    stopped = False
+    stopped = waiting = False
     if resume:
-        stopped = session_typing.limit_wait_on_screen(pid)
-        if stopped:
-            # Cancel the wait first: while it lasts, typed commands would only be queued.
-            session_typing.cancel_limit_wait(pid, session)
-        stopped = stopped or transcript.stopped_at_limit(path)
+        waiting = session_typing.limit_wait_on_screen(pid)
+        stopped = waiting or transcript.stopped_at_limit(path)
     for text in commands:
-        if not _type_command(pid, text, deadline, session):
+        # Cancel the wait with the first command: while it lasts, typed commands would only be
+        # queued. type_one presses Esc only once the main conversation is on screen (on a subagent
+        # shown instead, Esc would stop that subagent).
+        if not _type_command(pid, text, deadline, session, cancel_wait=waiting):
             return stopped
+        waiting = False
     if not resume:
         return False
     if not stopped:
@@ -223,12 +224,12 @@ def watch_one(pid: int) -> None:
         return
 
 
-def _type_command(pid: int, text: str, deadline: float, session: str) -> bool:
+def _type_command(pid: int, text: str, deadline: float, session: str, cancel_wait: bool = False) -> bool:
     """Type one on-switch command. False when the session never became ready for it."""
     from . import session_typing  # Windows only (ctypes)
 
     for attempt in range(3):
-        if not session_typing.type_one(pid, text, deadline, session, cancel_wait=False):
+        if not session_typing.type_one(pid, text, deadline, session, cancel_wait=cancel_wait and attempt == 0):
             return False
         if not text.strip().startswith("/remote-control"):
             time.sleep(2.0)

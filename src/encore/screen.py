@@ -32,6 +32,24 @@ def input_box(lines: list):
     return None
 
 
+# While a subagent is shown (picked from the agent list under the input box), the input box sends
+# to that subagent, and its empty box shows "Message @<agent name>…" (Claude Code 2.1.322).
+_AGENT_VIEW_HINT = "Message @"
+
+
+def viewing_agent(lines: list, cursor=None) -> bool:
+    """True when the screen shows a subagent instead of the main conversation: what is typed would
+    go to that subagent, and Esc would stop it while it runs.
+
+    Seen only while the input box is empty (the hint is example text: the cursor sits at the start
+    of the box for it)."""
+    box = input_box(lines)
+    if box is None:
+        return False
+    row, start, text = box
+    return text.startswith(_AGENT_VIEW_HINT) and (cursor is None or tuple(cursor) == (start, row))
+
+
 # "✻ Stewing… (12s · ↓ 24 tokens)", "✽ Cerebrating… (1m 49s · ↓ 4.9k tokens)",
 # "* Beboppin'… (running PreToolUse hooks… 6/7 · 4m 36s · ↓ 12.0k tokens)"
 _SPINNER = re.compile(r"…\s*\([^)\n]*?\b\d+[hms]\b")

@@ -61,7 +61,7 @@ On Windows, encore also types into each session that was running before the swit
 - `/remote-control` (Remote Control disconnects when the account changes).
 - If the session, or one of its subagents, had stopped at the usage limit: a message asking Claude to continue, and to let subagents that stopped go on from where they stopped. Only this message reaches Claude.
 
-Anything you were typing is kept. Change what is typed with `encore on-switch set ...`, `on-switch continue "<text>"`, or `on-switch clear`.
+Anything you were typing is kept. While a subagent is shown in the session, encore waits until you go back to the main conversation (what it types would go to that subagent). Change what is typed with `encore on-switch set ...`, `on-switch continue "<text>"`, or `on-switch clear`.
 
 ## Notes
 

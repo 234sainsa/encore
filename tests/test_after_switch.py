@@ -338,6 +338,74 @@ class ScreenAndTranscriptTests(unittest.TestCase):
             self.assertFalse(session_typing.remote_control_asked_retry(1, 10 ** 5, "s"))
         self.assertEqual(pressed, ["\x1b"])
 
+    def test_viewing_agent(self):
+        # A subagent picked from the agent list: the empty box shows "Message @<name>…".
+        lines, row = self.screen("❯\xa0Message @general-purpose…")
+        self.assertTrue(screen.viewing_agent(lines, (2, row)))
+        self.assertFalse(screen.viewing_agent(lines, (27, row)))   # typed by the person: cursor after it
+        lines, row = self.screen("❯\xa0")
+        self.assertFalse(screen.viewing_agent(lines, (2, row)))
+        lines, row = self.screen('❯\xa0Try "write a test for <filepath>"')
+        self.assertFalse(screen.viewing_agent(lines, (2, row)))
+
+    class FakeConsole:
+        """A session screen: the main conversation or a subagent, the input box, Ctrl+S's stash."""
+        RULE = "─" * 40
+
+        def __init__(self, views, text="", limit_wait=False):
+            self.views, self.text, self.stash, self.limit_wait = list(views), text, None, limit_wait
+            self.typed, self.pressed = [], []
+
+        def read_screen(self, pid):
+            view = self.views.pop(0) if len(self.views) > 1 else self.views[0]
+            hint = "Message @general-purpose…" if view == "agent" else ""
+            box = "❯\xa0" + (self.text or hint)
+            lines = ["● OK", ""] + (["  Continuing automatically at 10:17am · Esc to cancel"]
+                                    if self.limit_wait and view == "agent" else [])
+            lines += [self.RULE, box, self.RULE, ""]
+            return lines, (2 + len(self.text), lines.index(box))
+
+        def press_key(self, pid, ch, vk, ctrl=False):
+            self.pressed.append(ch)
+            if ch == "\x13":
+                if self.text:
+                    self.stash, self.text = self.text, ""
+                elif self.stash:
+                    self.text, self.stash = self.stash, None
+
+        def type_line(self, pid, text):
+            self.typed.append(text)
+
+    def run_type_one(self, console, cancel_wait=False):
+        from encore import session_typing, win_console
+        clock = iter(range(10 ** 6))
+        with mock.patch.object(win_console, "read_screen", console.read_screen), \
+                mock.patch.object(win_console, "press_key", console.press_key), \
+                mock.patch.object(win_console, "type_line", console.type_line), \
+                mock.patch.object(session_typing.time, "sleep", lambda s: None), \
+                mock.patch.object(session_typing.time, "time", lambda: float(next(clock))), \
+                mock.patch.object(files, "log_event", lambda text: None):
+            return session_typing.type_one(1, "/remote-control", 10 ** 5, "s", cancel_wait=cancel_wait)
+
+    @unittest.skipUnless(os.name == "nt", "typing into sessions is Windows only")
+    def test_typing_waits_while_a_subagent_is_shown(self):
+        # What is typed there would go to the subagent, and Esc would stop it.
+        console = self.FakeConsole(["agent"] * 6 + ["main"], limit_wait=True)
+        self.assertTrue(self.run_type_one(console, cancel_wait=True))
+        self.assertEqual((console.typed, console.pressed), (["/remote-control"], []))
+        console = self.FakeConsole(["agent"])
+        self.assertFalse(self.run_type_one(console))   # still on the subagent at the deadline
+        self.assertEqual(console.typed, [])
+
+    @unittest.skipUnless(os.name == "nt", "typing into sessions is Windows only")
+    def test_draft_typed_to_a_subagent_is_given_back(self):
+        # The draft hides the subagent's hint; it shows once the draft is put aside.
+        console = self.FakeConsole(["agent"] * 12 + ["main"], text="draft")
+        self.assertTrue(self.run_type_one(console))
+        # Put aside, given back, then (main conversation) put aside again before typing.
+        self.assertEqual(console.pressed, ["\x13", "\x13", "\x13"])
+        self.assertEqual((console.typed, console.stash), (["/remote-control"], "draft"))
+
     def write(self, records):
         f = tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False, encoding="utf-8")
         self.addCleanup(os.unlink, f.name)
