@@ -37,6 +37,19 @@ def input_box(lines: list):
 _AGENT_VIEW_HINT = "Message @"
 
 
+def in_agent_list(lines: list, cursor) -> bool:
+    """True while the person moves through the agent list under the input box (↓ from the box):
+    the cursor sits on a list row, below the box's lower rule.
+
+    Then the box can show a subagent's hint while the cursor is away from it, so the hint looks
+    like typed text (seen on a real screen, Claude Code 2.1.322)."""
+    box = input_box(lines)
+    if box is None or cursor is None:
+        return False
+    below = next((i for i in range(box[0] + 1, len(lines)) if "─" * 20 in lines[i]), None)
+    return below is not None and cursor[1] > below
+
+
 def viewing_agent(lines: list, cursor=None) -> bool:
     """True when the screen shows a subagent instead of the main conversation: what is typed would
     go to that subagent, and Esc would stop it while it runs.

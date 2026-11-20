@@ -30,13 +30,19 @@ def wait_for_box(pid: int, deadline: float, session: str = "", not_text=None, no
     Until `not_until`, a box that holds `not_text` does not count. Returns (lines, cursor), or None
     at the deadline."""
     last = None
-    told = False
+    told = told_list = False
     while time.time() < deadline:
         try:
             lines, cursor = win_console.read_screen(pid)
         except OSError:
             return None
         box = screen.input_box(lines)
+        if box and screen.in_agent_list(lines, cursor):
+            # The person is picking a conversation: wait until they are back in the input box.
+            if not told_list:
+                files.log_event(f"on-switch session={session}: the agent list is in use; waiting")
+                told_list = True
+            box = None
         held = bool(box) and not_text is not None and box[2] == not_text and time.time() < not_until
         if box and (held or screen.viewing_agent(lines, cursor)):
             # Typed text would go to that subagent: wait until the person goes back to the main one.
