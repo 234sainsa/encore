@@ -362,21 +362,48 @@ class ScreenAndTranscriptTests(unittest.TestCase):
         self.assertFalse(screen.in_agent_list(lines, (4, row)))
         self.assertFalse(screen.in_agent_list(["Enter to select"], (0, 0)))
 
-    @unittest.skipUnless(os.name == "nt", "typing into sessions is Windows only")
-    def test_typing_waits_while_the_agent_list_is_in_use(self):
+    MAIN_BOX = (AGENT_LIST[:2] + ["─" * 120, "❯ ", "─" * 120, "  [sub]", ""], (2, 3))
+
+    def run_with_list(self, read_screen, on_key=None):
         from encore import session_typing, win_console
-        main = (self.AGENT_LIST[:3] + ["❯ ", "─" * 120, "  [sub]", ""], (2, 3))
-        views = [(self.AGENT_LIST, (0, 9))] * 5 + [main]
         clock = iter(range(10 ** 6))
         typed, pressed = [], []
-        with mock.patch.object(win_console, "read_screen", lambda pid: views.pop(0) if len(views) > 1 else views[0]), \
+
+        def press(pid, ch, vk, ctrl=False):
+            pressed.append(vk)
+            if on_key:
+                on_key(vk)
+        with mock.patch.object(win_console, "read_screen", read_screen), \
                 mock.patch.object(win_console, "type_line", lambda pid, text: typed.append(text)), \
-                mock.patch.object(win_console, "press_key", lambda *a, **k: pressed.append(a[1])), \
+                mock.patch.object(win_console, "press_key", press), \
                 mock.patch.object(session_typing.time, "sleep", lambda s: None), \
                 mock.patch.object(session_typing.time, "time", lambda: float(next(clock))), \
                 mock.patch.object(files, "log_event", lambda text: None):
-            self.assertTrue(session_typing.type_one(1, "/remote-control", 10 ** 5, "s"))
-        self.assertEqual((typed, pressed), (["/remote-control"], []))
+            done = session_typing.type_one(1, "/remote-control", 10 ** 5, "s")
+        return done, typed, pressed
+
+    @unittest.skipUnless(os.name == "nt", "typing into sessions is Windows only")
+    def test_typing_waits_while_the_agent_list_is_in_use(self):
+        # The person goes back to the box by themselves, soon.
+        views = [(self.AGENT_LIST, (0, 9))] * 3 + [self.MAIN_BOX]
+        done, typed, pressed = self.run_with_list(lambda pid: views.pop(0) if len(views) > 1 else views[0])
+        self.assertEqual((done, typed, pressed), (True, ["/remote-control"], []))
+
+    @unittest.skipUnless(os.name == "nt", "typing into sessions is Windows only")
+    def test_left_in_the_agent_list_goes_back_up_to_the_box(self):
+        # Nobody moves in the list: after a while ↑ (vk 0x26) takes the cursor back to the box.
+        where = {"rows_up": 2}
+
+        def read_screen(pid):
+            if where["rows_up"] > 0:
+                return self.AGENT_LIST, (0, 7 + where["rows_up"])
+            return self.MAIN_BOX
+
+        def on_key(vk):
+            if vk == 0x26:
+                where["rows_up"] -= 1
+        done, typed, pressed = self.run_with_list(read_screen, on_key)
+        self.assertEqual((done, typed, pressed), (True, ["/remote-control"], [0x26, 0x26]))
 
     class FakeConsole:
         """A session screen: the main conversation or a subagent, the input box, Ctrl+S's stash."""

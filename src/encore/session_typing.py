@@ -24,6 +24,10 @@ def cancel_limit_wait(pid: int, session: str) -> None:
     time.sleep(1.5)
 
 
+LIST_IDLE_SEC = 20  # how long the cursor may sit still in the agent list before encore leaves it
+LIST_MAX_UPS = 4    # ↑ presses to get from the lowest list row back to the box
+
+
 def wait_for_box(pid: int, deadline: float, session: str = "", not_text=None, not_until: float = 0):
     """Wait until the input box of the main conversation is on screen (no dialog, no subagent
     shown) and the person is not in the middle of typing (the box did not change for a moment).
@@ -31,6 +35,7 @@ def wait_for_box(pid: int, deadline: float, session: str = "", not_text=None, no
     at the deadline."""
     last = None
     told = told_list = False
+    list_at, list_since, ups = None, 0.0, 0
     while time.time() < deadline:
         try:
             lines, cursor = win_console.read_screen(pid)
@@ -42,7 +47,20 @@ def wait_for_box(pid: int, deadline: float, session: str = "", not_text=None, no
             if not told_list:
                 files.log_event(f"on-switch session={session}: the agent list is in use; waiting")
                 told_list = True
+            if tuple(cursor) != list_at:
+                list_at, list_since = tuple(cursor), time.time()
+            if ups or time.time() - list_since >= LIST_IDLE_SEC:
+                # Left in the list (nobody moved in it for a while): ↑ goes back up to the input
+                # box. ↑ only moves the selection, it never opens a conversation (Enter does), so
+                # the conversation on screen stays the same.
+                if ups < LIST_MAX_UPS:
+                    win_console.press_key(pid, "\0", 0x26)
+                    ups += 1
+                    files.log_event(f"on-switch session={session}: nobody used the agent list for "
+                                    f"{LIST_IDLE_SEC}s; pressed Up to go back to the input box")
             box = None
+        else:
+            list_at, ups = None, 0
         held = bool(box) and not_text is not None and box[2] == not_text and time.time() < not_until
         if box and (held or screen.viewing_agent(lines, cursor)):
             # Typed text would go to that subagent: wait until the person goes back to the main one.
